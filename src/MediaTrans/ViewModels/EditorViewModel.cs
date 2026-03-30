@@ -98,7 +98,13 @@ namespace MediaTrans.ViewModels
         public string TrimStartText
         {
             get { return _trimStartText; }
-            set { SetProperty(ref _trimStartText, value, "TrimStartText"); }
+            set
+            {
+                if (SetProperty(ref _trimStartText, value, "TrimStartText"))
+                {
+                    OnPropertyChanged("TrimStartPercent");
+                }
+            }
         }
 
         /// <summary>
@@ -107,7 +113,47 @@ namespace MediaTrans.ViewModels
         public string TrimEndText
         {
             get { return _trimEndText; }
-            set { SetProperty(ref _trimEndText, value, "TrimEndText"); }
+            set
+            {
+                if (SetProperty(ref _trimEndText, value, "TrimEndText"))
+                {
+                    OnPropertyChanged("TrimEndPercent");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 裁剪起始位置百分比（0‑100），供波形选区覆盖层绑定
+        /// </summary>
+        public double TrimStartPercent
+        {
+            get
+            {
+                if (_currentFile == null || _currentFile.DurationSeconds <= 0) return 0;
+                double start;
+                if (TryParseTimeText(_trimStartText, out start))
+                {
+                    return Math.Max(0, Math.Min(100, start / _currentFile.DurationSeconds * 100.0));
+                }
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 裁剪结束位置百分比（0‑100），供波形选区覆盖层绑定
+        /// </summary>
+        public double TrimEndPercent
+        {
+            get
+            {
+                if (_currentFile == null || _currentFile.DurationSeconds <= 0) return 100;
+                double end;
+                if (TryParseTimeText(_trimEndText, out end))
+                {
+                    return Math.Max(0, Math.Min(100, end / _currentFile.DurationSeconds * 100.0));
+                }
+                return 100;
+            }
         }
 
         /// <summary>
@@ -213,6 +259,14 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _gainDb, value, "GainDb"))
                 {
                     OnPropertyChanged("GainText");
+                    // 同步更新播放音量预览（仅衰减范围有效，0 dB 对应 volume=1.0）
+                    if (_playbackService != null)
+                    {
+                        double linearVol = GainService.DbToLinear(value);
+                        if (linearVol > 1.0) linearVol = 1.0;
+                        if (linearVol < 0.0) linearVol = 0.0;
+                        _playbackService.SetVolume((float)linearVol);
+                    }
                 }
             }
         }
@@ -282,6 +336,10 @@ namespace MediaTrans.ViewModels
         public RelayCommand RemoveSpliceFileCommand { get; private set; }
         /// <summary>拼接导出命令</summary>
         public RelayCommand SpliceExportCommand { get; private set; }
+        /// <summary>拼接文件上移命令</summary>
+        public RelayCommand MoveSpliceUpCommand { get; private set; }
+        /// <summary>拼接文件下移命令</summary>
+        public RelayCommand MoveSpliceDownCommand { get; private set; }
 
         /// <summary>
         /// 构造函数
@@ -309,6 +367,8 @@ namespace MediaTrans.ViewModels
             AddSpliceFileCommand = new RelayCommand(OnAddSpliceFile);
             RemoveSpliceFileCommand = new RelayCommand(OnRemoveSpliceFile);
             SpliceExportCommand = new RelayCommand(OnSpliceExport, CanSpliceExport);
+            MoveSpliceUpCommand = new RelayCommand(OnMoveSpliceUp);
+            MoveSpliceDownCommand = new RelayCommand(OnMoveSpliceDown);
         }
 
         /// <summary>
@@ -537,6 +597,25 @@ namespace MediaTrans.ViewModels
 
         // ===== 播放控制 =====
 
+        /// <summary>
+        /// 通过进度比例（0.0‑1.0）跳转到对应时间点，供波形点击/拖拽调用
+        /// </summary>
+        public void SeekToRatio(double ratio)
+        {
+            if (_currentFile == null || _playbackService == null) return;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            double targetSeconds = _currentFile.DurationSeconds * ratio;
+            long targetSample = (long)(targetSeconds * _playbackService.SampleRate);
+
+            _playbackService.SeekToSample(targetSample);
+
+            // 立即刷新进度显示
+            PlaybackProgress = ratio;
+            CurrentTimeText = SecondsToTimeText(targetSeconds);
+        }
+
         private bool CanPlayPause(object parameter)
         {
             return _currentFile != null && _currentFile.HasAudio;
@@ -673,11 +752,21 @@ namespace MediaTrans.ViewModels
 
             double duration = endSec - startSec;
 
-            // 构建输出路径
+            // 构建默认输出路径
             string ext = SelectedExportFormat ?? ".mp4";
             string suffix = string.Format("_trim_{0:D2}m{1:D2}s",
                 (int)(startSec / 60), (int)(startSec % 60));
-            string outputPath = BuildOutputPath(_currentFile.FilePath, suffix, ext);
+            string defaultOutputPath = BuildOutputPath(_currentFile.FilePath, suffix, ext);
+
+            // 让用户选择保存路径
+            var saveDialog = new Microsoft.Win32.SaveFileDialog();
+            saveDialog.FileName = Path.GetFileName(defaultOutputPath);
+            saveDialog.InitialDirectory = Path.GetDirectoryName(defaultOutputPath);
+            saveDialog.DefaultExt = ext;
+            saveDialog.Filter = MediaFileService.BuildSaveFilter(ext);
+            bool? dialogResult = saveDialog.ShowDialog();
+            if (dialogResult != true) return;
+            string outputPath = saveDialog.FileName;
 
             var exportParams = new EditExportParams
             {
@@ -830,6 +919,28 @@ namespace MediaTrans.ViewModels
             }
         }
 
+        private void OnMoveSpliceUp(object parameter)
+        {
+            var entry = parameter as SpliceEntry;
+            if (entry == null) return;
+            int idx = _spliceFiles.IndexOf(entry);
+            if (idx > 0)
+            {
+                _spliceFiles.Move(idx, idx - 1);
+            }
+        }
+
+        private void OnMoveSpliceDown(object parameter)
+        {
+            var entry = parameter as SpliceEntry;
+            if (entry == null) return;
+            int idx = _spliceFiles.IndexOf(entry);
+            if (idx >= 0 && idx < _spliceFiles.Count - 1)
+            {
+                _spliceFiles.Move(idx, idx + 1);
+            }
+        }
+
         private bool CanSpliceExport(object parameter)
         {
             return _spliceFiles.Count >= 2 && !_isExporting;
@@ -851,8 +962,18 @@ namespace MediaTrans.ViewModels
                 outputDir = Path.GetDirectoryName(_spliceFiles[0].FilePath);
             }
 
-            string outputPath = Path.Combine(outputDir ?? "",
+            string defaultOutputPath = Path.Combine(outputDir ?? "",
                 string.Format("splice_{0}{1}", DateTime.Now.ToString("yyyyMMdd_HHmmss"), ext));
+
+            // 让用户选择保存路径
+            var saveDialog = new Microsoft.Win32.SaveFileDialog();
+            saveDialog.FileName = Path.GetFileName(defaultOutputPath);
+            saveDialog.InitialDirectory = Path.GetDirectoryName(defaultOutputPath);
+            saveDialog.DefaultExt = ext;
+            saveDialog.Filter = MediaFileService.BuildSaveFilter(ext);
+            bool? dialogResult = saveDialog.ShowDialog();
+            if (dialogResult != true) return;
+            string outputPath = saveDialog.FileName;
 
             var segments = new List<ClipSegment>();
             double totalDur = 0;
@@ -890,6 +1011,7 @@ namespace MediaTrans.ViewModels
 
         // ===== 辅助方法 =====
 
+        /// <summary>
         private static string SecondsToTimeText(double seconds)
         {
             if (seconds < 0) seconds = 0;

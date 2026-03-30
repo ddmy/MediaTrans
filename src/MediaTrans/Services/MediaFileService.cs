@@ -40,6 +40,31 @@ namespace MediaTrans.Services
             "音频文件|*.mp3;*.wav;*.flac;*.aac;*.ogg;*.wma;*.m4a;*.opus;*.ape;*.alac;*.aiff;*.ac3;*.dts|" +
             "所有文件|*.*";
 
+        /// <summary>
+        /// 为 SaveFileDialog 构建保存格式过滤器字符串
+        /// </summary>
+        /// <param name="ext">目标扩展名（如 ".mp4"）</param>
+        public static string BuildSaveFilter(string ext)
+        {
+            switch (ext.ToLowerInvariant())
+            {
+                case ".mp4":  return "MP4 视频文件|*.mp4|所有文件|*.*";
+                case ".avi":  return "AVI 视频文件|*.avi|所有文件|*.*";
+                case ".mkv":  return "MKV 视频文件|*.mkv|所有文件|*.*";
+                case ".mov":  return "MOV 视频文件|*.mov|所有文件|*.*";
+                case ".wmv":  return "WMV 视频文件|*.wmv|所有文件|*.*";
+                case ".flv":  return "FLV 视频文件|*.flv|所有文件|*.*";
+                case ".webm": return "WebM 视频文件|*.webm|所有文件|*.*";
+                case ".mp3":  return "MP3 音频文件|*.mp3|所有文件|*.*";
+                case ".wav":  return "WAV 音频文件|*.wav|所有文件|*.*";
+                case ".flac": return "FLAC 音频文件|*.flac|所有文件|*.*";
+                case ".aac":  return "AAC 音频文件|*.aac|所有文件|*.*";
+                case ".ogg":  return "OGG 音频文件|*.ogg|所有文件|*.*";
+                case ".m4a":  return "M4A 音频文件|*.m4a|所有文件|*.*";
+                default:      return "媒体文件|*" + ext + "|所有文件|*.*";
+            }
+        }
+
         public MediaFileService(ConfigService configService)
         {
             _configService = configService;

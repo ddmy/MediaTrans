@@ -8,11 +8,12 @@ using MediaTrans.ViewModels;
 namespace MediaTrans.Views
 {
     /// <summary>
-    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮、文件拖放、快捷键
+    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮、文件拖放、快捷键、波形交互
     /// </summary>
     public partial class MainWindow : Window
     {
         private ShortcutService _shortcutService;
+        private bool _isDraggingWaveform;
 
         public MainWindow()
         {
@@ -141,6 +142,64 @@ namespace MediaTrans.Views
                 MaxHeight = SystemParameters.MaximizedPrimaryScreenHeight;
                 MaxWidth = SystemParameters.MaximizedPrimaryScreenWidth;
                 WindowState = WindowState.Maximized;
+            }
+        }
+
+        /// <summary>
+        /// 波形区域鼠标按下 — 开始拖拽或单击定位
+        /// </summary>
+        private void WaveformBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+
+            _isDraggingWaveform = true;
+            border.CaptureMouse();
+            SeekWaveformAtPosition(border, e.GetPosition(border));
+        }
+
+        /// <summary>
+        /// 波形区域鼠标移动 — 拖拽进度
+        /// </summary>
+        private void WaveformBorder_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isDraggingWaveform) return;
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                SeekWaveformAtPosition(border, e.GetPosition(border));
+            }
+        }
+
+        /// <summary>
+        /// 波形区域鼠标松开 — 结束拖拽
+        /// </summary>
+        private void WaveformBorder_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+            _isDraggingWaveform = false;
+            border.ReleaseMouseCapture();
+            SeekWaveformAtPosition(border, e.GetPosition(border));
+        }
+
+        /// <summary>
+        /// 根据鼠标位置在波形中定位播放进度
+        /// </summary>
+        private void SeekWaveformAtPosition(System.Windows.Controls.Border border, Point position)
+        {
+            double width = border.ActualWidth;
+            if (width <= 0) return;
+
+            double ratio = position.X / width;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            var vm = DataContext as MainViewModel;
+            if (vm != null && vm.EditorVm != null)
+            {
+                vm.EditorVm.SeekToRatio(ratio);
             }
         }
 
