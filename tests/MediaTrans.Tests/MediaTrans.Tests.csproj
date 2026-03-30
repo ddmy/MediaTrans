@@ -34,6 +34,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Xml" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="WindowsBase" />
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -95,6 +96,7 @@
     <Compile Include="PaywallServiceTests.cs" />
     <Compile Include="LicenseViewModelTests.cs" />
     <Compile Include="Milestone3Tests.cs" />
+    <Compile Include="ConfuserExConfigTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
