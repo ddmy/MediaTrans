@@ -14,7 +14,7 @@
     </Window.DataContext>
 
     <!-- 外层边框提供阴影和圆角 -->
-    <Border Background="#FF1E1E2E" BorderBrush="#FF3E3E5E" BorderThickness="1"
+    <Border Background="{DynamicResource BgDarkBrush}" BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
             Margin="5">
         <Grid>
             <Grid.RowDefinitions>
@@ -27,7 +27,7 @@
             </Grid.RowDefinitions>
 
             <!-- 自定义标题栏 -->
-            <Grid Grid.Row="0" Background="#FF2D2D44" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid Grid.Row="0" Background="{DynamicResource BgLightBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -37,43 +37,40 @@
                 <!-- 应用图标和标题 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
                     <TextBlock Text="🎬" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBlock Text="{Binding Title}" Foreground="#FFCCCCCC" FontSize="13" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource FgSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- 窗口控制按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <!-- 最小化按钮 -->
                     <Button x:Name="BtnMinimize" Click="BtnMinimize_Click"
-                            Width="46" Height="32" BorderThickness="0"
-                            Background="Transparent" Foreground="#FFAAAAAA"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE921;" FontSize="10"
+                            Style="{StaticResource WindowControlButton}"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE921;"
                             ToolTip="最小化"/>
                     <!-- 最大化/还原按钮 -->
                     <Button x:Name="BtnMaximize" Click="BtnMaximize_Click"
-                            Width="46" Height="32" BorderThickness="0"
-                            Background="Transparent" Foreground="#FFAAAAAA"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE922;" FontSize="10"
+                            Style="{StaticResource WindowControlButton}"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE922;"
                             ToolTip="最大化"/>
                     <!-- 关闭按钮 -->
                     <Button x:Name="BtnClose" Click="BtnClose_Click"
-                            Width="46" Height="32" BorderThickness="0"
-                            Background="Transparent" Foreground="#FFAAAAAA"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;" FontSize="10"
+                            Style="{StaticResource WindowCloseButton}"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;"
                             ToolTip="关闭"/>
                 </StackPanel>
             </Grid>
 
             <!-- 主内容区 -->
-            <Grid Grid.Row="1" Background="#FF1E1E2E">
+            <Grid Grid.Row="1" Background="{DynamicResource BgDarkBrush}">
                 <TextBlock Text="MediaTrans 音视频处理工具" 
-                           Foreground="#FF888888" FontSize="16"
+                           Foreground="{DynamicResource FgMutedBrush}" FontSize="16"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- 状态栏 -->
-            <Border Grid.Row="2" Background="#FF252540">
+            <Border Grid.Row="2" Background="{DynamicResource BgMediumBrush}">
                 <TextBlock Text="{Binding StatusText}" 
-                           Foreground="#FF888888" FontSize="11"
+                           Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
                            VerticalAlignment="Center" Margin="10,0,0,0"/>
             </Border>
 
