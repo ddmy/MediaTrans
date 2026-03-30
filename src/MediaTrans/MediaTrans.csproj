@@ -94,6 +94,7 @@
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
+    <Compile Include="ViewModels\WaveformViewModel.cs" />
     <Compile Include="ViewModels\ConversionSettingsViewModel.cs" />
     <Compile Include="ViewModels\ConversionProgressViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
