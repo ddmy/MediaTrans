@@ -54,6 +54,10 @@
       <HintPath>$(MSBuildThisFileDirectory)..\..\packages\SkiaSharp.1.68.3\lib\net45\SkiaSharp.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="NAudio">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\packages\NAudio.1.10.0\lib\net35\NAudio.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -80,6 +84,7 @@
     <Compile Include="Models\ConversionTask.cs" />
     <Compile Include="Models\MediaFileInfo.cs" />
     <Compile Include="Services\AudioPcmCacheService.cs" />
+    <Compile Include="Services\AudioPlaybackService.cs" />
     <Compile Include="Services\ConfigService.cs" />
     <Compile Include="Services\ConversionService.cs" />
     <Compile Include="Services\ConversionQueueService.cs" />
@@ -98,6 +103,7 @@
     <Compile Include="ViewModels\WaveformViewModel.cs" />
     <Compile Include="ViewModels\TimelineViewModel.cs" />
     <Compile Include="ViewModels\SelectionViewModel.cs" />
+    <Compile Include="ViewModels\PlaybackViewModel.cs" />
     <Compile Include="ViewModels\ConversionSettingsViewModel.cs" />
     <Compile Include="ViewModels\ConversionProgressViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">

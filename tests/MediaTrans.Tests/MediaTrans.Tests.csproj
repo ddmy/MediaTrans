@@ -53,6 +53,10 @@
       <HintPath>$(MSBuildThisFileDirectory)..\..\packages\SkiaSharp.1.68.3\lib\net45\SkiaSharp.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="NAudio">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\packages\NAudio.1.10.0\lib\net35\NAudio.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioPcmCacheServiceTests.cs" />
@@ -72,6 +76,7 @@
     <Compile Include="WaveformViewModelTests.cs" />
     <Compile Include="TimelineTests.cs" />
     <Compile Include="SelectionViewModelTests.cs" />
+    <Compile Include="PlaybackTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
