@@ -101,6 +101,7 @@
     <Compile Include="BuildScriptTests.cs" />
     <Compile Include="Win7CompatibilityTests.cs" />
     <Compile Include="DpiCompatibilityTests.cs" />
+    <Compile Include="Milestone4Tests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
