@@ -88,6 +88,7 @@
     <Compile Include="PerformanceStressTests.cs" />
     <Compile Include="Milestone2Tests.cs" />
     <Compile Include="KeyGeneratorTests.cs" />
+    <Compile Include="LicenseIssuerTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -99,6 +100,10 @@
     <ProjectReference Include="..\..\tools\KeyGenerator\KeyGenerator.csproj">
       <Project>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</Project>
       <Name>KeyGenerator</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\tools\LicenseIssuer\LicenseIssuer.csproj">
+      <Project>{D4E5F6A7-B8C9-0123-DEFA-234567890123}</Project>
+      <Name>LicenseIssuer</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
