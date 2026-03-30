@@ -157,8 +157,8 @@
                                                        Foreground="{DynamicResource FgMutedBrush}" Margin="0,2,0,0">
                                                 <TextBlock.Text>
                                                     <MultiBinding StringFormat="{}{0}  {1}">
-                                                        <Binding Path="DurationText"/>
-                                                        <Binding Path="FileSizeText"/>
+                                                        <Binding Path="DurationText" Mode="OneWay"/>
+                                                        <Binding Path="FileSizeText" Mode="OneWay"/>
                                                     </MultiBinding>
                                                 </TextBlock.Text>
                                             </TextBlock>
@@ -221,23 +221,23 @@
                                         <TextBlock Text="文件详情" Foreground="{DynamicResource FgPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
                                         <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgSecondaryBrush}" TextTrimming="CharacterEllipsis">
                                             <Run Text="名称："/>
-                                            <Run Text="{Binding SelectedFile.FileName}"/>
+                                            <Run Text="{Binding SelectedFile.FileName, Mode=OneWay}"/>
                                         </TextBlock>
                                         <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
                                             <Run Text="时长："/>
-                                            <Run Text="{Binding SelectedFile.DurationText}"/>
+                                            <Run Text="{Binding SelectedFile.DurationText, Mode=OneWay}"/>
                                         </TextBlock>
                                         <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
                                             <Run Text="大小："/>
-                                            <Run Text="{Binding SelectedFile.FileSizeText}"/>
+                                            <Run Text="{Binding SelectedFile.FileSizeText, Mode=OneWay}"/>
                                         </TextBlock>
                                         <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
                                             <Run Text="格式："/>
-                                            <Run Text="{Binding SelectedFile.Format}"/>
+                                            <Run Text="{Binding SelectedFile.Format, Mode=OneWay}"/>
                                         </TextBlock>
                                         <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
                                             <Run Text="音频编码："/>
-                                            <Run Text="{Binding SelectedFile.AudioCodec}"/>
+                                            <Run Text="{Binding SelectedFile.AudioCodec, Mode=OneWay}"/>
                                         </TextBlock>
                                         <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
                                                    Text="预览编辑器将在后续步骤中显示波形与时间线。"/>
