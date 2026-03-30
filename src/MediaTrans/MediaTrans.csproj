@@ -73,6 +73,11 @@
     <Compile Include="Commands\RelayCommand.cs" />
     <Compile Include="Models\AppConfig.cs" />
     <Compile Include="Services\ConfigService.cs" />
+    <Compile Include="Services\FFmpegCommandBuilder.cs" />
+    <Compile Include="Services\FFmpegProgressEventArgs.cs" />
+    <Compile Include="Services\FFmpegResult.cs" />
+    <Compile Include="Services\FFmpegService.cs" />
+    <Compile Include="Services\JobObject.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
