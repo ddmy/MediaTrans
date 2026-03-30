@@ -225,65 +225,18 @@ namespace MediaTrans.Services
             task.Status = ConversionStatus.Converting;
             task.StatusText = "正在转换...";
 
-            // 构建命令参数
             string arguments = BuildConversionArguments(
                 task.SourceFile, task.OutputPath, task.TargetFormat, task.Preset);
 
-            // 监听进度
-            EventHandler<FFmpegProgressEventArgs> progressHandler = null;
-            progressHandler = (s, e) =>
-            {
-                task.Progress = e.Percentage;
-                task.StatusText = string.Format("转换中 {0:F1}%", e.Percentage);
-                var handler = ProgressChanged;
-                if (handler != null)
-                {
-                    handler(this, e);
-                }
-            };
-
+            var progressHandler = CreateProgressHandler(task, "转换中");
             _ffmpegService.ProgressChanged += progressHandler;
 
-            return _ffmpegService.ExecuteAsync(
-                arguments,
-                task.SourceFile.DurationSeconds,
-                cancellationToken).ContinueWith(t =>
-            {
-                _ffmpegService.ProgressChanged -= progressHandler;
-
-                if (t.IsFaulted)
+            return _ffmpegService.ExecuteAsync(arguments, task.SourceFile.DurationSeconds, cancellationToken)
+                .ContinueWith(t =>
                 {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "转换失败";
-                    task.ErrorMessage = t.Exception != null ? t.Exception.InnerException.Message : "未知错误";
-                    return new FFmpegResult
-                    {
-                        Success = false,
-                        ErrorMessage = task.ErrorMessage
-                    };
-                }
-
-                var result = t.Result;
-                if (result.Cancelled)
-                {
-                    task.Status = ConversionStatus.Cancelled;
-                    task.StatusText = "已取消";
-                }
-                else if (result.Success)
-                {
-                    task.Status = ConversionStatus.Completed;
-                    task.Progress = 100;
-                    task.StatusText = "转换完成";
-                }
-                else
-                {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "转换失败";
-                    task.ErrorMessage = result.ErrorMessage;
-                }
-
-                return result;
-            });
+                    _ffmpegService.ProgressChanged -= progressHandler;
+                    return ApplyTaskResult(task, t, "转换完成", "转换失败");
+                });
         }
 
         /// <summary>
@@ -297,60 +250,15 @@ namespace MediaTrans.Services
             string arguments = BuildExtractAudioArguments(
                 task.SourceFile, task.OutputPath, task.TargetFormat, task.Preset);
 
-            EventHandler<FFmpegProgressEventArgs> progressHandler = null;
-            progressHandler = (s, e) =>
-            {
-                task.Progress = e.Percentage;
-                task.StatusText = string.Format("提取中 {0:F1}%", e.Percentage);
-                var handler = ProgressChanged;
-                if (handler != null)
-                {
-                    handler(this, e);
-                }
-            };
-
+            var progressHandler = CreateProgressHandler(task, "提取中");
             _ffmpegService.ProgressChanged += progressHandler;
 
-            return _ffmpegService.ExecuteAsync(
-                arguments,
-                task.SourceFile.DurationSeconds,
-                cancellationToken).ContinueWith(t =>
-            {
-                _ffmpegService.ProgressChanged -= progressHandler;
-
-                if (t.IsFaulted)
+            return _ffmpegService.ExecuteAsync(arguments, task.SourceFile.DurationSeconds, cancellationToken)
+                .ContinueWith(t =>
                 {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "提取音频失败";
-                    task.ErrorMessage = t.Exception != null ? t.Exception.InnerException.Message : "未知错误";
-                    return new FFmpegResult
-                    {
-                        Success = false,
-                        ErrorMessage = task.ErrorMessage
-                    };
-                }
-
-                var result = t.Result;
-                if (result.Cancelled)
-                {
-                    task.Status = ConversionStatus.Cancelled;
-                    task.StatusText = "已取消";
-                }
-                else if (result.Success)
-                {
-                    task.Status = ConversionStatus.Completed;
-                    task.Progress = 100;
-                    task.StatusText = "提取音频完成";
-                }
-                else
-                {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "提取音频失败";
-                    task.ErrorMessage = result.ErrorMessage;
-                }
-
-                return result;
-            });
+                    _ffmpegService.ProgressChanged -= progressHandler;
+                    return ApplyTaskResult(task, t, "提取音频完成", "提取音频失败");
+                });
         }
 
         /// <summary>
@@ -364,60 +272,70 @@ namespace MediaTrans.Services
             string arguments = BuildExtractVideoArguments(
                 task.SourceFile, task.OutputPath, task.TargetFormat, task.Preset);
 
-            EventHandler<FFmpegProgressEventArgs> progressHandler = null;
-            progressHandler = (s, e) =>
+            var progressHandler = CreateProgressHandler(task, "提取中");
+            _ffmpegService.ProgressChanged += progressHandler;
+
+            return _ffmpegService.ExecuteAsync(arguments, task.SourceFile.DurationSeconds, cancellationToken)
+                .ContinueWith(t =>
+                {
+                    _ffmpegService.ProgressChanged -= progressHandler;
+                    return ApplyTaskResult(task, t, "提取视频完成", "提取视频失败");
+                });
+        }
+
+        /// <summary>
+        /// 创建进度事件处理器（驱动 task.Progress 和 ProgressChanged 事件）
+        /// </summary>
+        private EventHandler<FFmpegProgressEventArgs> CreateProgressHandler(ConversionTask task, string operationLabel)
+        {
+            return (s, e) =>
             {
                 task.Progress = e.Percentage;
-                task.StatusText = string.Format("提取中 {0:F1}%", e.Percentage);
+                task.StatusText = string.Format("{0} {1:F1}%", operationLabel, e.Percentage);
                 var handler = ProgressChanged;
                 if (handler != null)
                 {
                     handler(this, e);
                 }
             };
+        }
 
-            _ffmpegService.ProgressChanged += progressHandler;
-
-            return _ffmpegService.ExecuteAsync(
-                arguments,
-                task.SourceFile.DurationSeconds,
-                cancellationToken).ContinueWith(t =>
+        /// <summary>
+        /// 将已完成任务的结果写回 ConversionTask 并返回 FFmpegResult
+        /// </summary>
+        private static FFmpegResult ApplyTaskResult(
+            ConversionTask task, Task<FFmpegResult> completedTask,
+            string successText, string failureText)
+        {
+            if (completedTask.IsFaulted)
             {
-                _ffmpegService.ProgressChanged -= progressHandler;
+                task.Status = ConversionStatus.Failed;
+                task.StatusText = failureText;
+                task.ErrorMessage = completedTask.Exception != null
+                    ? completedTask.Exception.InnerException.Message : "未知错误";
+                return new FFmpegResult { Success = false, ErrorMessage = task.ErrorMessage };
+            }
 
-                if (t.IsFaulted)
-                {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "提取视频失败";
-                    task.ErrorMessage = t.Exception != null ? t.Exception.InnerException.Message : "未知错误";
-                    return new FFmpegResult
-                    {
-                        Success = false,
-                        ErrorMessage = task.ErrorMessage
-                    };
-                }
+            var result = completedTask.Result;
+            if (result.Cancelled)
+            {
+                task.Status = ConversionStatus.Cancelled;
+                task.StatusText = "已取消";
+            }
+            else if (result.Success)
+            {
+                task.Status = ConversionStatus.Completed;
+                task.Progress = 100;
+                task.StatusText = successText;
+            }
+            else
+            {
+                task.Status = ConversionStatus.Failed;
+                task.StatusText = failureText;
+                task.ErrorMessage = result.ErrorMessage;
+            }
 
-                var result = t.Result;
-                if (result.Cancelled)
-                {
-                    task.Status = ConversionStatus.Cancelled;
-                    task.StatusText = "已取消";
-                }
-                else if (result.Success)
-                {
-                    task.Status = ConversionStatus.Completed;
-                    task.Progress = 100;
-                    task.StatusText = "提取视频完成";
-                }
-                else
-                {
-                    task.Status = ConversionStatus.Failed;
-                    task.StatusText = "提取视频失败";
-                    task.ErrorMessage = result.ErrorMessage;
-                }
-
-                return result;
-            });
+            return result;
         }
 
         /// <summary>
