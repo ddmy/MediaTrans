@@ -78,6 +78,7 @@
     <Compile Include="SelectionViewModelTests.cs" />
     <Compile Include="PlaybackTests.cs" />
     <Compile Include="VideoFrameCacheTests.cs" />
+    <Compile Include="TimelineTrackTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

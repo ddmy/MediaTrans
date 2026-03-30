@@ -83,6 +83,7 @@
     <Compile Include="Models\AudioInfo.cs" />
     <Compile Include="Models\ConversionTask.cs" />
     <Compile Include="Models\MediaFileInfo.cs" />
+    <Compile Include="Models\TimelineClip.cs" />
     <Compile Include="Services\AudioPcmCacheService.cs" />
     <Compile Include="Services\AudioPlaybackService.cs" />
     <Compile Include="Services\ConfigService.cs" />
@@ -106,6 +107,7 @@
     <Compile Include="ViewModels\SelectionViewModel.cs" />
     <Compile Include="ViewModels\PlaybackViewModel.cs" />
     <Compile Include="ViewModels\VideoPreviewViewModel.cs" />
+    <Compile Include="ViewModels\TimelineTrackViewModel.cs" />
     <Compile Include="ViewModels\ConversionSettingsViewModel.cs" />
     <Compile Include="ViewModels\ConversionProgressViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
