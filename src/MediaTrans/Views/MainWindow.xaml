@@ -189,9 +189,60 @@
                             </Border>
                             <!-- 预览内容区 -->
                             <Grid Grid.Row="1">
-                                <TextBlock Text="请导入音视频文件" 
+                                <!-- 未选中文件时显示占位提示 -->
+                                <TextBlock Text="请导入音视频文件"
                                            Foreground="{DynamicResource FgMutedBrush}" FontSize="14"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- 选中文件后显示基础信息（即使元信息加载失败也能给出可见反馈） -->
+                                <Border Padding="16">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <TextBlock Text="文件详情" Foreground="{DynamicResource FgPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgSecondaryBrush}" TextTrimming="CharacterEllipsis">
+                                            <Run Text="名称："/>
+                                            <Run Text="{Binding SelectedFile.FileName}"/>
+                                        </TextBlock>
+                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                            <Run Text="时长："/>
+                                            <Run Text="{Binding SelectedFile.DurationText}"/>
+                                        </TextBlock>
+                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                            <Run Text="大小："/>
+                                            <Run Text="{Binding SelectedFile.FileSizeText}"/>
+                                        </TextBlock>
+                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                            <Run Text="格式："/>
+                                            <Run Text="{Binding SelectedFile.Format}"/>
+                                        </TextBlock>
+                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                            <Run Text="音频编码："/>
+                                            <Run Text="{Binding SelectedFile.AudioCodec}"/>
+                                        </TextBlock>
+                                        <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
+                                                   Text="预览编辑器将在后续步骤中显示波形与时间线。"/>
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </Grid>
                     </Border>

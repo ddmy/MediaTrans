@@ -104,7 +104,7 @@ namespace MediaTrans.Services
 
             // 使用 ffprobe 获取 JSON 格式的元信息
             var config = _configService.Load();
-            string ffprobePath = config.FFprobePath;
+            string ffprobePath = ResolveFfprobePath(config.FFprobePath);
 
             // 构建 ffprobe 参数：输出 JSON 格式，包含流和格式信息
             string arguments = string.Format(
@@ -120,6 +120,77 @@ namespace MediaTrans.Services
 
             info.MetadataLoaded = true;
             return info;
+        }
+
+        /// <summary>
+        /// 解析 ffprobe 可执行文件路径：
+        /// 1. 支持绝对路径；
+        /// 2. 相对路径默认相对于应用程序目录；
+        /// 3. 缺失时抛出可读性更高的异常信息。
+        /// </summary>
+        private string ResolveFfprobePath(string configuredPath)
+        {
+            string rawPath = configuredPath;
+            if (string.IsNullOrWhiteSpace(rawPath))
+            {
+                rawPath = @"lib\ffmpeg\ffprobe.exe";
+            }
+
+            // 优先尝试：绝对路径、应用目录相对路径、当前工作目录相对路径
+            var candidates = new List<string>();
+            if (Path.IsPathRooted(rawPath))
+            {
+                candidates.Add(rawPath);
+            }
+            else
+            {
+                candidates.Add(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, rawPath));
+                candidates.Add(Path.Combine(Environment.CurrentDirectory, rawPath));
+
+                // 开发态回退：从 bin 目录向上查找项目根目录的 lib\ffmpeg
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                for (int i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
+                {
+                    candidates.Add(Path.Combine(dir, "lib", "ffmpeg", "ffprobe.exe"));
+                    try
+                    {
+                        dir = Directory.GetParent(dir) != null ? Directory.GetParent(dir).FullName : null;
+                    }
+                    catch
+                    {
+                        dir = null;
+                    }
+                }
+            }
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                string candidate = candidates[i];
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(candidate);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (File.Exists(fullPath))
+                {
+                    return fullPath;
+                }
+            }
+
+            // 提示用户所有尝试过的路径，便于定位问题
+            string triedPaths = string.Join("; ", candidates.ToArray());
+            throw new FileNotFoundException(
+                string.Format("未找到 ffprobe 可执行文件。已尝试：{0}。请检查 Config/AppConfig.json 中 FFprobePath，或将 ffprobe.exe 放到 lib\\ffmpeg\\ 目录。", triedPaths));
         }
 
         /// <summary>
