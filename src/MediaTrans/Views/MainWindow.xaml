@@ -3,14 +3,105 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MediaTrans.ViewModels"
         Title="{Binding Title}" Height="600" Width="900"
-        WindowStartupLocation="CenterScreen">
+        MinHeight="400" MinWidth="700"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize">
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
-    <Grid>
-        <TextBlock Text="{Binding StatusText}" 
-                   VerticalAlignment="Bottom" 
-                   Margin="10,0,0,5" 
-                   Foreground="Gray" />
-    </Grid>
+
+    <!-- 外层边框提供阴影和圆角 -->
+    <Border Background="#FF1E1E2E" BorderBrush="#FF3E3E5E" BorderThickness="1"
+            Margin="5">
+        <Grid>
+            <Grid.RowDefinitions>
+                <!-- 标题栏 -->
+                <RowDefinition Height="32"/>
+                <!-- 内容区 -->
+                <RowDefinition Height="*"/>
+                <!-- 状态栏 -->
+                <RowDefinition Height="24"/>
+            </Grid.RowDefinitions>
+
+            <!-- 自定义标题栏 -->
+            <Grid Grid.Row="0" Background="#FF2D2D44" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 应用图标和标题 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <TextBlock Text="🎬" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="{Binding Title}" Foreground="#FFCCCCCC" FontSize="13" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 窗口控制按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <!-- 最小化按钮 -->
+                    <Button x:Name="BtnMinimize" Click="BtnMinimize_Click"
+                            Width="46" Height="32" BorderThickness="0"
+                            Background="Transparent" Foreground="#FFAAAAAA"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE921;" FontSize="10"
+                            ToolTip="最小化"/>
+                    <!-- 最大化/还原按钮 -->
+                    <Button x:Name="BtnMaximize" Click="BtnMaximize_Click"
+                            Width="46" Height="32" BorderThickness="0"
+                            Background="Transparent" Foreground="#FFAAAAAA"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE922;" FontSize="10"
+                            ToolTip="最大化"/>
+                    <!-- 关闭按钮 -->
+                    <Button x:Name="BtnClose" Click="BtnClose_Click"
+                            Width="46" Height="32" BorderThickness="0"
+                            Background="Transparent" Foreground="#FFAAAAAA"
+                            FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;" FontSize="10"
+                            ToolTip="关闭"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 主内容区 -->
+            <Grid Grid.Row="1" Background="#FF1E1E2E">
+                <TextBlock Text="MediaTrans 音视频处理工具" 
+                           Foreground="#FF888888" FontSize="16"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- 状态栏 -->
+            <Border Grid.Row="2" Background="#FF252540">
+                <TextBlock Text="{Binding StatusText}" 
+                           Foreground="#FF888888" FontSize="11"
+                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+            </Border>
+
+            <!-- 缩放把手（8个方向） -->
+            <!-- 左边缘 -->
+            <Thumb Grid.Row="0" Grid.RowSpan="3" Width="5" HorizontalAlignment="Left" 
+                   Cursor="SizeWE" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="Left"/>
+            <!-- 右边缘 -->
+            <Thumb Grid.Row="0" Grid.RowSpan="3" Width="5" HorizontalAlignment="Right" 
+                   Cursor="SizeWE" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="Right"/>
+            <!-- 上边缘 -->
+            <Thumb Grid.Row="0" Height="5" VerticalAlignment="Top" 
+                   Cursor="SizeNS" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="Top"/>
+            <!-- 下边缘 -->
+            <Thumb Grid.Row="2" Height="5" VerticalAlignment="Bottom" 
+                   Cursor="SizeNS" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="Bottom"/>
+            <!-- 左上角 -->
+            <Thumb Grid.Row="0" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Top"
+                   Cursor="SizeNWSE" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="TopLeft"/>
+            <!-- 右上角 -->
+            <Thumb Grid.Row="0" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                   Cursor="SizeNESW" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="TopRight"/>
+            <!-- 左下角 -->
+            <Thumb Grid.Row="2" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                   Cursor="SizeNESW" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="BottomLeft"/>
+            <!-- 右下角 -->
+            <Thumb Grid.Row="2" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Cursor="SizeNWSE" Opacity="0" DragDelta="ResizeThumb_DragDelta" Tag="BottomRight"/>
+        </Grid>
+    </Border>
 </Window>
