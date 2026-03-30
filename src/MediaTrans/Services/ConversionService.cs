@@ -287,6 +287,140 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// 提取音频（去除视频轨）
+        /// </summary>
+        public Task<FFmpegResult> ExtractAudioAsync(ConversionTask task, CancellationToken cancellationToken)
+        {
+            task.Status = ConversionStatus.Converting;
+            task.StatusText = "正在提取音频...";
+
+            string arguments = BuildExtractAudioArguments(
+                task.SourceFile, task.OutputPath, task.TargetFormat, task.Preset);
+
+            EventHandler<FFmpegProgressEventArgs> progressHandler = null;
+            progressHandler = (s, e) =>
+            {
+                task.Progress = e.Percentage;
+                task.StatusText = string.Format("提取中 {0:F1}%", e.Percentage);
+                var handler = ProgressChanged;
+                if (handler != null)
+                {
+                    handler(this, e);
+                }
+            };
+
+            _ffmpegService.ProgressChanged += progressHandler;
+
+            return _ffmpegService.ExecuteAsync(
+                arguments,
+                task.SourceFile.DurationSeconds,
+                cancellationToken).ContinueWith(t =>
+            {
+                _ffmpegService.ProgressChanged -= progressHandler;
+
+                if (t.IsFaulted)
+                {
+                    task.Status = ConversionStatus.Failed;
+                    task.StatusText = "提取音频失败";
+                    task.ErrorMessage = t.Exception != null ? t.Exception.InnerException.Message : "未知错误";
+                    return new FFmpegResult
+                    {
+                        Success = false,
+                        ErrorMessage = task.ErrorMessage
+                    };
+                }
+
+                var result = t.Result;
+                if (result.Cancelled)
+                {
+                    task.Status = ConversionStatus.Cancelled;
+                    task.StatusText = "已取消";
+                }
+                else if (result.Success)
+                {
+                    task.Status = ConversionStatus.Completed;
+                    task.Progress = 100;
+                    task.StatusText = "提取音频完成";
+                }
+                else
+                {
+                    task.Status = ConversionStatus.Failed;
+                    task.StatusText = "提取音频失败";
+                    task.ErrorMessage = result.ErrorMessage;
+                }
+
+                return result;
+            });
+        }
+
+        /// <summary>
+        /// 提取视频（去除音频轨）
+        /// </summary>
+        public Task<FFmpegResult> ExtractVideoAsync(ConversionTask task, CancellationToken cancellationToken)
+        {
+            task.Status = ConversionStatus.Converting;
+            task.StatusText = "正在提取视频...";
+
+            string arguments = BuildExtractVideoArguments(
+                task.SourceFile, task.OutputPath, task.TargetFormat, task.Preset);
+
+            EventHandler<FFmpegProgressEventArgs> progressHandler = null;
+            progressHandler = (s, e) =>
+            {
+                task.Progress = e.Percentage;
+                task.StatusText = string.Format("提取中 {0:F1}%", e.Percentage);
+                var handler = ProgressChanged;
+                if (handler != null)
+                {
+                    handler(this, e);
+                }
+            };
+
+            _ffmpegService.ProgressChanged += progressHandler;
+
+            return _ffmpegService.ExecuteAsync(
+                arguments,
+                task.SourceFile.DurationSeconds,
+                cancellationToken).ContinueWith(t =>
+            {
+                _ffmpegService.ProgressChanged -= progressHandler;
+
+                if (t.IsFaulted)
+                {
+                    task.Status = ConversionStatus.Failed;
+                    task.StatusText = "提取视频失败";
+                    task.ErrorMessage = t.Exception != null ? t.Exception.InnerException.Message : "未知错误";
+                    return new FFmpegResult
+                    {
+                        Success = false,
+                        ErrorMessage = task.ErrorMessage
+                    };
+                }
+
+                var result = t.Result;
+                if (result.Cancelled)
+                {
+                    task.Status = ConversionStatus.Cancelled;
+                    task.StatusText = "已取消";
+                }
+                else if (result.Success)
+                {
+                    task.Status = ConversionStatus.Completed;
+                    task.Progress = 100;
+                    task.StatusText = "提取视频完成";
+                }
+                else
+                {
+                    task.Status = ConversionStatus.Failed;
+                    task.StatusText = "提取视频失败";
+                    task.ErrorMessage = result.ErrorMessage;
+                }
+
+                return result;
+            });
+        }
+
+        /// <summary>
         /// 构建仅提取音频的 FFmpeg 命令参数（-vn 去视频轨）
         /// </summary>
         public string BuildExtractAudioArguments(MediaFileInfo source, string outputPath, string targetFormat, ConversionPreset preset)

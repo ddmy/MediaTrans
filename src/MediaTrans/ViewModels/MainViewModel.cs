@@ -24,6 +24,7 @@ namespace MediaTrans.ViewModels
         private CancellationTokenSource _conversionCts;
         private bool _isConverting;
         private bool _isLicensed;
+        private bool _isEditorMode;
 
         public MainViewModel()
         {
@@ -37,6 +38,13 @@ namespace MediaTrans.ViewModels
             OpenLicenseCommand = new RelayCommand(OnOpenLicense);
             StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
             StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
+            SettingsVm = new ConversionSettingsViewModel(_configService);
+            ProgressVm = new ConversionProgressViewModel();
+            ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
+            ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
+            SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
+            SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
+            _conversionService.ProgressChanged += OnConversionProgressChanged;
 
             // 初始化授权状态
             InitializeLicenseStatus();
@@ -57,6 +65,13 @@ namespace MediaTrans.ViewModels
             OpenLicenseCommand = new RelayCommand(OnOpenLicense);
             StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
             StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
+            SettingsVm = new ConversionSettingsViewModel(_configService);
+            ProgressVm = new ConversionProgressViewModel();
+            ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
+            ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
+            SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
+            SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
+            _conversionService.ProgressChanged += OnConversionProgressChanged;
             _isLicensed = false;
         }
 
@@ -93,7 +108,7 @@ namespace MediaTrans.ViewModels
             {
                 if (SetProperty(ref _selectedFile, value, "SelectedFile"))
                 {
-                    StartConversionCommand.RaiseCanExecuteChanged();
+                    RaiseAllConversionCanExecuteChanged();
                 }
             }
         }
@@ -126,6 +141,45 @@ namespace MediaTrans.ViewModels
             get { return _isLicensed; }
             set { SetProperty(ref _isLicensed, value, "IsLicensed"); }
         }
+
+        /// <summary>
+        /// 是否为编辑器模式
+        /// </summary>
+        public bool IsEditorMode
+        {
+            get { return _isEditorMode; }
+            set { SetProperty(ref _isEditorMode, value, "IsEditorMode"); }
+        }
+
+        /// <summary>
+        /// 转换参数设置 ViewModel
+        /// </summary>
+        public ConversionSettingsViewModel SettingsVm { get; private set; }
+
+        /// <summary>
+        /// 转换进度 ViewModel
+        /// </summary>
+        public ConversionProgressViewModel ProgressVm { get; private set; }
+
+        /// <summary>
+        /// 提取音频命令
+        /// </summary>
+        public RelayCommand ExtractAudioCommand { get; private set; }
+
+        /// <summary>
+        /// 提取视频命令
+        /// </summary>
+        public RelayCommand ExtractVideoCommand { get; private set; }
+
+        /// <summary>
+        /// 切换到转换模式命令
+        /// </summary>
+        public RelayCommand SwitchToConvertCommand { get; private set; }
+
+        /// <summary>
+        /// 切换到编辑器模式命令
+        /// </summary>
+        public RelayCommand SwitchToEditorCommand { get; private set; }
 
         /// <summary>
         /// 初始化授权状态
@@ -341,21 +395,27 @@ namespace MediaTrans.ViewModels
             try
             {
                 var source = SelectedFile;
-                string targetFormat = source.HasVideo ? ".mp4" : ".mp3";
+                string targetFormat = SettingsVm.SelectedFormat ?? (source.HasVideo ? ".mp4" : ".mp3");
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                ConversionPreset preset = null;
+                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
+                {
+                    preset = SettingsVm.BuildCurrentPreset();
+                }
 
                 var task = new ConversionTask
                 {
                     SourceFile = source,
                     OutputPath = outputPath,
                     TargetFormat = targetFormat,
-                    Preset = null
+                    Preset = preset
                 };
 
                 _conversionCts = new CancellationTokenSource();
                 _isConverting = true;
-                StartConversionCommand.RaiseCanExecuteChanged();
-                StopConversionCommand.RaiseCanExecuteChanged();
+                RaiseAllConversionCanExecuteChanged();
+                ProgressVm.StartConversion(source.FileName);
                 StatusText = string.Format("开始转换: {0}", source.FileName);
 
                 _conversionService.ConvertAsync(task, _conversionCts.Token).ContinueWith(t =>
@@ -363,29 +423,32 @@ namespace MediaTrans.ViewModels
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         _isConverting = false;
-                        StartConversionCommand.RaiseCanExecuteChanged();
-                        StopConversionCommand.RaiseCanExecuteChanged();
+                        RaiseAllConversionCanExecuteChanged();
 
                         if (t.IsFaulted)
                         {
-                            StatusText = string.Format("转换失败: {0}",
-                                t.Exception != null && t.Exception.InnerException != null
-                                    ? t.Exception.InnerException.Message
-                                    : "未知错误");
+                            string errMsg = t.Exception != null && t.Exception.InnerException != null
+                                ? t.Exception.InnerException.Message
+                                : "未知错误";
+                            ProgressVm.CompleteConversion(false, errMsg);
+                            StatusText = string.Format("转换失败: {0}", errMsg);
                             return;
                         }
 
                         var result = t.Result;
                         if (result.Cancelled)
                         {
+                            ProgressVm.CancelConversion();
                             StatusText = "转换已取消";
                         }
                         else if (result.Success)
                         {
+                            ProgressVm.CompleteConversion(true, "");
                             StatusText = string.Format("转换完成: {0}", outputPath);
                         }
                         else
                         {
+                            ProgressVm.CompleteConversion(false, result.ErrorMessage);
                             StatusText = string.Format("转换失败: {0}", result.ErrorMessage);
                         }
                     }));
@@ -394,8 +457,7 @@ namespace MediaTrans.ViewModels
             catch (Exception ex)
             {
                 _isConverting = false;
-                StartConversionCommand.RaiseCanExecuteChanged();
-                StopConversionCommand.RaiseCanExecuteChanged();
+                RaiseAllConversionCanExecuteChanged();
                 StatusText = string.Format("无法开始转换: {0}", ex.Message);
             }
         }
@@ -407,6 +469,186 @@ namespace MediaTrans.ViewModels
                 _conversionCts.Cancel();
                 StatusText = "正在取消转换...";
             }
+        }
+
+        private void OnConversionProgressChanged(object sender, FFmpegProgressEventArgs e)
+        {
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ProgressVm.UpdateProgress(e);
+            }));
+        }
+
+        private void OnExtractAudio(object parameter)
+        {
+            if (SelectedFile == null || _isConverting)
+            {
+                return;
+            }
+
+            try
+            {
+                var source = SelectedFile;
+                string targetFormat = ".mp3";
+                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                ConversionPreset preset = null;
+                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
+                {
+                    preset = SettingsVm.BuildCurrentPreset();
+                }
+
+                var task = new ConversionTask
+                {
+                    SourceFile = source,
+                    OutputPath = outputPath,
+                    TargetFormat = targetFormat,
+                    Preset = preset
+                };
+
+                _conversionCts = new CancellationTokenSource();
+                _isConverting = true;
+                RaiseAllConversionCanExecuteChanged();
+                ProgressVm.StartConversion(source.FileName);
+                StatusText = string.Format("正在提取音频: {0}", source.FileName);
+
+                _conversionService.ExtractAudioAsync(task, _conversionCts.Token).ContinueWith(t =>
+                {
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _isConverting = false;
+                        RaiseAllConversionCanExecuteChanged();
+
+                        if (t.IsFaulted)
+                        {
+                            string errMsg = t.Exception != null && t.Exception.InnerException != null
+                                ? t.Exception.InnerException.Message
+                                : "未知错误";
+                            ProgressVm.CompleteConversion(false, errMsg);
+                            StatusText = string.Format("提取音频失败: {0}", errMsg);
+                            return;
+                        }
+
+                        var result = t.Result;
+                        if (result.Cancelled)
+                        {
+                            ProgressVm.CancelConversion();
+                            StatusText = "提取音频已取消";
+                        }
+                        else if (result.Success)
+                        {
+                            ProgressVm.CompleteConversion(true, "");
+                            StatusText = string.Format("提取音频完成: {0}", outputPath);
+                        }
+                        else
+                        {
+                            ProgressVm.CompleteConversion(false, result.ErrorMessage);
+                            StatusText = string.Format("提取音频失败: {0}", result.ErrorMessage);
+                        }
+                    }));
+                });
+            }
+            catch (Exception ex)
+            {
+                _isConverting = false;
+                RaiseAllConversionCanExecuteChanged();
+                StatusText = string.Format("无法提取音频: {0}", ex.Message);
+            }
+        }
+
+        private void OnExtractVideo(object parameter)
+        {
+            if (SelectedFile == null || _isConverting)
+            {
+                return;
+            }
+
+            try
+            {
+                var source = SelectedFile;
+                string targetFormat = ".mp4";
+                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                ConversionPreset preset = null;
+                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
+                {
+                    preset = SettingsVm.BuildCurrentPreset();
+                }
+
+                var task = new ConversionTask
+                {
+                    SourceFile = source,
+                    OutputPath = outputPath,
+                    TargetFormat = targetFormat,
+                    Preset = preset
+                };
+
+                _conversionCts = new CancellationTokenSource();
+                _isConverting = true;
+                RaiseAllConversionCanExecuteChanged();
+                ProgressVm.StartConversion(source.FileName);
+                StatusText = string.Format("正在提取视频: {0}", source.FileName);
+
+                _conversionService.ExtractVideoAsync(task, _conversionCts.Token).ContinueWith(t =>
+                {
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _isConverting = false;
+                        RaiseAllConversionCanExecuteChanged();
+
+                        if (t.IsFaulted)
+                        {
+                            string errMsg = t.Exception != null && t.Exception.InnerException != null
+                                ? t.Exception.InnerException.Message
+                                : "未知错误";
+                            ProgressVm.CompleteConversion(false, errMsg);
+                            StatusText = string.Format("提取视频失败: {0}", errMsg);
+                            return;
+                        }
+
+                        var result = t.Result;
+                        if (result.Cancelled)
+                        {
+                            ProgressVm.CancelConversion();
+                            StatusText = "提取视频已取消";
+                        }
+                        else if (result.Success)
+                        {
+                            ProgressVm.CompleteConversion(true, "");
+                            StatusText = string.Format("提取视频完成: {0}", outputPath);
+                        }
+                        else
+                        {
+                            ProgressVm.CompleteConversion(false, result.ErrorMessage);
+                            StatusText = string.Format("提取视频失败: {0}", result.ErrorMessage);
+                        }
+                    }));
+                });
+            }
+            catch (Exception ex)
+            {
+                _isConverting = false;
+                RaiseAllConversionCanExecuteChanged();
+                StatusText = string.Format("无法提取视频: {0}", ex.Message);
+            }
+        }
+
+        private void OnSwitchToConvert(object parameter)
+        {
+            IsEditorMode = false;
+        }
+
+        private void OnSwitchToEditor(object parameter)
+        {
+            IsEditorMode = true;
+        }
+
+        private void RaiseAllConversionCanExecuteChanged()
+        {
+            StartConversionCommand.RaiseCanExecuteChanged();
+            StopConversionCommand.RaiseCanExecuteChanged();
+            ExtractAudioCommand.RaiseCanExecuteChanged();
+            ExtractVideoCommand.RaiseCanExecuteChanged();
         }
     }
 }
