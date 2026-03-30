@@ -113,6 +113,14 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 采样率
+        /// </summary>
+        public int SampleRate
+        {
+            get { return _sampleRate; }
+        }
+
+        /// <summary>
         /// 缩放级别显示文本
         /// </summary>
         public string ZoomLevelText
