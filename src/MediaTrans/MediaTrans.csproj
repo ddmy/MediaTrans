@@ -106,6 +106,7 @@
     <Compile Include="Services\ShortcutService.cs" />
     <Compile Include="Services\EditExportService.cs" />
     <Compile Include="Services\MachineCodeService.cs" />
+    <Compile Include="Services\LicenseService.cs" />
     <Compile Include="Services\UndoableCommands.cs" />
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="Services\TimelineRulerService.cs" />
@@ -131,6 +132,9 @@
     <Content Include="Config\AppConfig.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\public_key.pem" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
