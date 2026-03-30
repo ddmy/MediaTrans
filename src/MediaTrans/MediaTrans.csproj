@@ -83,6 +83,7 @@
     <Compile Include="Services\FFmpegService.cs" />
     <Compile Include="Services\HardwareAccelerationService.cs" />
     <Compile Include="Services\JobObject.cs" />
+    <Compile Include="Services\LogService.cs" />
     <Compile Include="Services\MediaFileService.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
