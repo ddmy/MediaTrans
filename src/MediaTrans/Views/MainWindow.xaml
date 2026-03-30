@@ -263,6 +263,7 @@
                                                        Foreground="{DynamicResource FgSecondaryBrush}"
                                                        FontSize="12" VerticalAlignment="Center"/>
                                             <ComboBox Grid.Column="1"
+                                                      Style="{StaticResource DarkComboBox}"
                                                       ItemsSource="{Binding SettingsVm.OutputFormats}"
                                                       SelectedItem="{Binding SettingsVm.SelectedFormat}"
                                                       FontSize="12"/>
@@ -278,6 +279,7 @@
                                                        Foreground="{DynamicResource FgSecondaryBrush}"
                                                        FontSize="12" VerticalAlignment="Center"/>
                                             <ComboBox Grid.Column="1"
+                                                      Style="{StaticResource DarkComboBox}"
                                                       ItemsSource="{Binding SettingsVm.Presets}"
                                                       SelectedItem="{Binding SettingsVm.SelectedPreset}"
                                                       DisplayMemberPath="Name"
@@ -303,9 +305,10 @@
                                         <Border Margin="0,14,0,0" Padding="12"
                                                 Background="{DynamicResource BgMediumBrush}"
                                                 BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
-                                                Visibility="{Binding ProgressVm.IsConverting, Converter={StaticResource BoolToVisibility}}">
+                                                Visibility="{Binding ProgressVm.ShowProgressPanel, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel>
-                                                <ProgressBar Value="{Binding ProgressVm.ProgressPercentage, Mode=OneWay}"
+                                                <ProgressBar Style="{StaticResource DarkProgressBar}"
+                                                             Value="{Binding ProgressVm.ProgressPercentage, Mode=OneWay}"
                                                              Minimum="0" Maximum="100" Height="8"/>
                                                 <Grid Margin="0,6,0,0">
                                                     <Grid.ColumnDefinitions>
@@ -321,10 +324,9 @@
                                                 </Grid>
                                                 <TextBlock Text="日志" Foreground="{DynamicResource FgSecondaryBrush}"
                                                            FontSize="11" Margin="0,8,0,4"/>
-                                                <ListBox ItemsSource="{Binding ProgressVm.LogEntries}"
+                                                <ListBox Style="{StaticResource DarkListBox}"
+                                                         ItemsSource="{Binding ProgressVm.LogEntries}"
                                                          MaxHeight="80" FontSize="10"
-                                                         Background="{DynamicResource BgDarkBrush}"
-                                                         Foreground="{DynamicResource FgMutedBrush}"
                                                          BorderThickness="0"
                                                          ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                                             </StackPanel>
@@ -397,7 +399,8 @@
                                         <!-- 增益调节 -->
                                         <TextBlock Text="增益调节" Foreground="{DynamicResource FgSecondaryBrush}"
                                                    FontSize="12" Margin="0,0,0,6"/>
-                                        <Slider Minimum="-20" Maximum="20" Value="0"
+                                        <Slider Style="{StaticResource DarkSlider}"
+                                                Minimum="-20" Maximum="20" Value="0"
                                                 TickFrequency="5" IsSnapToTickEnabled="True"
                                                 IsEnabled="False"/>
                                     </StackPanel>

@@ -16,6 +16,7 @@ namespace MediaTrans.ViewModels
         private string _remainingTimeText;
         private string _currentFileName;
         private bool _isConverting;
+        private bool _hasStarted;
         private readonly Stopwatch _stopwatch;
         private int _maxLogLines;
 
@@ -74,7 +75,23 @@ namespace MediaTrans.ViewModels
         public bool IsConverting
         {
             get { return _isConverting; }
-            set { SetProperty(ref _isConverting, value, "IsConverting"); }
+            set
+            {
+                if (SetProperty(ref _isConverting, value, "IsConverting"))
+                {
+                    OnPropertyChanged("ShowProgressPanel");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 是否显示进度面板。
+        /// 一旦开始过任何一次转换（<see cref="StartConversion"/> 被调用），
+        /// 该属性即保持 true，使进度面板在转换完成后仍可见。
+        /// </summary>
+        public bool ShowProgressPanel
+        {
+            get { return _isConverting || _hasStarted; }
         }
 
         /// <summary>
@@ -106,6 +123,7 @@ namespace MediaTrans.ViewModels
         public void StartConversion(string fileName)
         {
             _stopwatch.Restart();
+            _hasStarted = true;
             IsConverting = true;
             CurrentFileName = fileName;
             ProgressPercentage = 0;

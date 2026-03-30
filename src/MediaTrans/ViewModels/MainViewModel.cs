@@ -478,7 +478,7 @@ namespace MediaTrans.ViewModels
             try
             {
                 var source = SelectedFile;
-                string targetFormat = ".mp3";
+                string targetFormat = GetEffectiveAudioExtractFormat();
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
                 ConversionPreset preset = GetPresetFromSettings();
@@ -549,7 +549,7 @@ namespace MediaTrans.ViewModels
             try
             {
                 var source = SelectedFile;
-                string targetFormat = ".mp4";
+                string targetFormat = GetEffectiveVideoExtractFormat();
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
                 ConversionPreset preset = GetPresetFromSettings();
@@ -621,7 +621,9 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
-        /// 从当前设置构建预设（有自定义参数或已选预设时返回非 null）
+        /// 从当前设置构建预设。
+        /// 返回 null 时表示无自定义参数，ConversionService 将使用目标格式的默认编解码器。
+        /// 返回非 null 时表示用户已选择预设或输入自定义参数，ConversionService 将使用返回的预设。
         /// </summary>
         private ConversionPreset GetPresetFromSettings()
         {
@@ -630,6 +632,34 @@ namespace MediaTrans.ViewModels
                 return SettingsVm.BuildCurrentPreset();
             }
             return null;
+        }
+
+        /// <summary>
+        /// 获取提取音频操作的目标格式：
+        /// 若当前选中格式为音频格式则使用它，否则默认 .mp3。
+        /// </summary>
+        private string GetEffectiveAudioExtractFormat()
+        {
+            string selectedFmt = SettingsVm.SelectedFormat;
+            if (!string.IsNullOrEmpty(selectedFmt) && ConversionService.IsAudioOnlyFormat(selectedFmt))
+            {
+                return selectedFmt;
+            }
+            return ".mp3";
+        }
+
+        /// <summary>
+        /// 获取提取视频操作的目标格式：
+        /// 若当前选中格式为视频格式则使用它，否则默认 .mp4。
+        /// </summary>
+        private string GetEffectiveVideoExtractFormat()
+        {
+            string selectedFmt = SettingsVm.SelectedFormat;
+            if (!string.IsNullOrEmpty(selectedFmt) && !ConversionService.IsAudioOnlyFormat(selectedFmt))
+            {
+                return selectedFmt;
+            }
+            return ".mp4";
         }
 
         /// <summary>
