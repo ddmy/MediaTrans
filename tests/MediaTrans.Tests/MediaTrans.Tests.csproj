@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConfigServiceTests.cs" />
+    <Compile Include="ConversionServiceTests.cs" />
     <Compile Include="FFmpegCommandBuilderTests.cs" />
     <Compile Include="FFmpegServiceTests.cs" />
     <Compile Include="MediaFileServiceTests.cs" />
