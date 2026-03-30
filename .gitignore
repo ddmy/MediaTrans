@@ -1,0 +1,28 @@
+# Visual Studio / MSBuild
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+
+# Build results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# FFmpeg binaries (tracked separately)
+lib/ffmpeg/*.exe

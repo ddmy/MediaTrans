@@ -1,0 +1,16 @@
+<Window x:Class="MediaTrans.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MediaTrans.ViewModels"
+        Title="{Binding Title}" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+    <Grid>
+        <TextBlock Text="{Binding StatusText}" 
+                   VerticalAlignment="Bottom" 
+                   Margin="10,0,0,5" 
+                   Foreground="Gray" />
+    </Grid>
+</Window>

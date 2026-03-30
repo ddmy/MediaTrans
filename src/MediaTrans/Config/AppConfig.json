@@ -1,0 +1,49 @@
+{
+  "FFmpegPath": "lib\\ffmpeg\\ffmpeg.exe",
+  "FFprobePath": "lib\\ffmpeg\\ffprobe.exe",
+  "DefaultOutputDir": "",
+  "MaxCachedFrames": 100,
+  "WaveformBlockWidth": 512,
+  "SnapThresholdPixels": 10,
+  "MaxUndoDepth": 50,
+  "LogMaxFileSize": 10485760,
+  "LogMaxFileCount": 5,
+  "WatermarkText": "MediaTrans",
+  "WatermarkFontSize": 24,
+  "WatermarkPosition": "RightBottom",
+  "FreeMaxExportSeconds": 60,
+  "HardwareAccelerationEnabled": true,
+  "MaxParallelTasks": 1,
+  "ConversionPresets": [
+    {
+      "Name": "高质量 1080p",
+      "VideoCodec": "libx264",
+      "AudioCodec": "aac",
+      "Width": 1920,
+      "Height": 1080,
+      "VideoBitrate": "5M",
+      "AudioBitrate": "192k",
+      "FrameRate": 30
+    },
+    {
+      "Name": "标准 720p",
+      "VideoCodec": "libx264",
+      "AudioCodec": "aac",
+      "Width": 1280,
+      "Height": 720,
+      "VideoBitrate": "2.5M",
+      "AudioBitrate": "128k",
+      "FrameRate": 30
+    },
+    {
+      "Name": "高质量音频",
+      "VideoCodec": "",
+      "AudioCodec": "aac",
+      "Width": 0,
+      "Height": 0,
+      "VideoBitrate": "",
+      "AudioBitrate": "320k",
+      "FrameRate": 0
+    }
+  ]
+}
