@@ -140,23 +140,25 @@ namespace MediaTrans.Services
             {
                 // 无预设时使用格式默认编解码器
                 var mapping = GetDefaultCodecs(targetFormat);
-                if (mapping != null)
+                if (mapping == null)
                 {
-                    if (isAudioOnly)
-                    {
-                        builder.NoVideo();
-                    }
-                    else if (!string.IsNullOrEmpty(mapping.VideoCodec))
-                    {
-                        // 尝试硬件加速替换
-                        string resolvedCodec = ResolveVideoCodec(mapping.VideoCodec);
-                        builder.VideoCodec(resolvedCodec);
-                    }
+                    throw new ArgumentException(string.Format("不支持的目标格式：{0}，无法确定编解码器", targetFormat));
+                }
 
-                    if (!string.IsNullOrEmpty(mapping.AudioCodec))
-                    {
-                        builder.AudioCodec(mapping.AudioCodec);
-                    }
+                if (isAudioOnly)
+                {
+                    builder.NoVideo();
+                }
+                else if (!string.IsNullOrEmpty(mapping.VideoCodec))
+                {
+                    // 尝试硬件加速替换
+                    string resolvedCodec = ResolveVideoCodec(mapping.VideoCodec);
+                    builder.VideoCodec(resolvedCodec);
+                }
+
+                if (!string.IsNullOrEmpty(mapping.AudioCodec))
+                {
+                    builder.AudioCodec(mapping.AudioCodec);
                 }
             }
 
@@ -309,6 +311,10 @@ namespace MediaTrans.Services
                 {
                     builder.AudioCodec(mapping.AudioCodec);
                 }
+                else
+                {
+                    throw new ArgumentException(string.Format("不支持的音频提取目标格式：{0}，无法确定音频编解码器", targetFormat));
+                }
             }
 
             builder.Threads(0);
@@ -354,6 +360,10 @@ namespace MediaTrans.Services
                     // 尝试硬件加速替换
                     string resolvedCodec = ResolveVideoCodec(mapping.VideoCodec);
                     builder.VideoCodec(resolvedCodec);
+                }
+                else
+                {
+                    throw new ArgumentException(string.Format("不支持的视频提取目标格式：{0}，无法确定视频编解码器", targetFormat));
                 }
             }
 

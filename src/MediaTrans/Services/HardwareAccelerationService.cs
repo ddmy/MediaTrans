@@ -16,6 +16,7 @@ namespace MediaTrans.Services
     {
         private readonly string _ffmpegPath;
         private readonly AppConfig _config;
+        private readonly JobObject _jobObject;
         private readonly object _lock = new object();
 
         private bool _probed;
@@ -94,6 +95,7 @@ namespace MediaTrans.Services
             }
             _config = config;
             _ffmpegPath = config.FFmpegPath;
+            _jobObject = new JobObject();
             _availableEncoders = new List<string>();
         }
 
@@ -108,6 +110,7 @@ namespace MediaTrans.Services
             }
             _ffmpegPath = ffmpegPath;
             _config = config;
+            _jobObject = new JobObject();
             _availableEncoders = new List<string>();
         }
 
@@ -292,6 +295,7 @@ namespace MediaTrans.Services
             {
                 process.StartInfo = startInfo;
                 process.Start();
+                _jobObject.AssignProcess(process.Handle);
 
                 string output = process.StandardOutput.ReadToEnd();
 

@@ -396,7 +396,7 @@ namespace MediaTrans.Tests
             Assert.Contains("-t", args);
             Assert.Contains("-i \"C:\\测试 目录\\音频.mp3\"", args);
             Assert.Contains("-f s16le", args);
-            Assert.Contains("-acodec pcm_s16le", args);
+            Assert.Contains("-c:a pcm_s16le", args);
             Assert.Contains("-ar 44100", args);
             Assert.Contains("-ac 2", args);
         }

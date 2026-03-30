@@ -67,6 +67,7 @@ namespace MediaTrans.Services
     public class AudioPcmCacheService : IDisposable
     {
         private readonly string _ffmpegPath;
+        private readonly JobObject _jobObject;
         private readonly object _lock = new object();
         private bool _disposed;
 
@@ -163,6 +164,7 @@ namespace MediaTrans.Services
                 throw new ArgumentNullException("ffmpegPath");
             }
             _ffmpegPath = ffmpegPath;
+            _jobObject = new JobObject();
             _blockSampleCount = blockSampleCount > 0 ? blockSampleCount : 44100;
             _bufferBlockCount = bufferBlockCount > 0 ? bufferBlockCount : 10;
             _cachedBlocks = new List<PcmBlock>();
@@ -305,7 +307,7 @@ namespace MediaTrans.Services
 
             // 构建 FFmpeg 命令：解码音频为 16-bit PCM raw 数据
             string arguments = string.Format(
-                "-ss {0} -t {1} -i \"{2}\" -f s16le -acodec pcm_s16le -ar {3} -ac {4} -",
+                "-ss {0} -t {1} -i \"{2}\" -f s16le -c:a pcm_s16le -ar {3} -ac {4} -",
                 startTime.ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
                 duration.ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
                 _audioInfo.FilePath,
@@ -336,7 +338,7 @@ namespace MediaTrans.Services
             int sampleRate, int channels)
         {
             return string.Format(
-                "-ss {0} -t {1} -i \"{2}\" -f s16le -acodec pcm_s16le -ar {3} -ac {4} -",
+                "-ss {0} -t {1} -i \"{2}\" -f s16le -c:a pcm_s16le -ar {3} -ac {4} -",
                 startTime.ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
                 duration.ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
                 filePath,
@@ -506,6 +508,7 @@ namespace MediaTrans.Services
             {
                 process.StartInfo = startInfo;
                 process.Start();
+                _jobObject.AssignProcess(process.Handle);
 
                 // 读取二进制 PCM 输出
                 byte[] result;
@@ -547,6 +550,10 @@ namespace MediaTrans.Services
                 }
             }
             ClearCache();
+            if (_jobObject != null)
+            {
+                _jobObject.Dispose();
+            }
         }
     }
 }

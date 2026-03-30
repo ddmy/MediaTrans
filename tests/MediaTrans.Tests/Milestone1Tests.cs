@@ -563,16 +563,27 @@ namespace MediaTrans.Tests
         [Fact]
         public void ConfigService_保存含中文值_UTF8编码正确()
         {
-            var configService = new ConfigService();
-            var config = AppConfig.CreateDefault();
-            config.WatermarkText = "MediaTrans 专业版 水印";
-            config.DefaultOutputDir = "C:\\用户\\文档\\输出 目录";
+            string tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + "_AppConfig.json");
+            try
+            {
+                var configService = new ConfigService(tempPath);
+                var config = AppConfig.CreateDefault();
+                config.WatermarkText = "MediaTrans 专业版 水印";
+                config.DefaultOutputDir = "C:\\用户\\文档\\输出 目录";
 
-            configService.Save(config);
-            var loaded = configService.Load();
+                configService.Save(config);
+                var loaded = configService.Load();
 
-            Assert.Equal("MediaTrans 专业版 水印", loaded.WatermarkText);
-            Assert.Equal("C:\\用户\\文档\\输出 目录", loaded.DefaultOutputDir);
+                Assert.Equal("MediaTrans 专业版 水印", loaded.WatermarkText);
+                Assert.Equal("C:\\用户\\文档\\输出 目录", loaded.DefaultOutputDir);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
         }
 
         // ============================================================
