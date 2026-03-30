@@ -103,6 +103,7 @@
     <Compile Include="Services\IUndoableCommand.cs" />
     <Compile Include="Services\UndoRedoService.cs" />
     <Compile Include="Services\ShortcutService.cs" />
+    <Compile Include="Services\EditExportService.cs" />
     <Compile Include="Services\UndoableCommands.cs" />
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="Services\TimelineRulerService.cs" />

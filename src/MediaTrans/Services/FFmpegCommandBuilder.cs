@@ -12,15 +12,20 @@ namespace MediaTrans.Services
     {
         private readonly List<string> _inputs;
         private readonly List<string> _options;
+        private readonly List<string> _preInputOptions;
         private string _videoCodec;
         private string _audioCodec;
         private string _output;
         private bool _overwrite;
+        private string _filterComplex;
+        private readonly List<string> _maps;
 
         public FFmpegCommandBuilder()
         {
             _inputs = new List<string>();
             _options = new List<string>();
+            _preInputOptions = new List<string>();
+            _maps = new List<string>();
             _overwrite = true; // 默认覆盖输出文件
         }
 
@@ -165,6 +170,75 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// 设置起始时间偏移（-ss 参数，放在输入前做快速 seek）
+        /// </summary>
+        public FFmpegCommandBuilder SeekStart(double seconds)
+        {
+            if (seconds > 0)
+            {
+                _preInputOptions.Add(string.Format("-ss {0:F6}", seconds));
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 设置持续时长（-t 参数）
+        /// </summary>
+        public FFmpegCommandBuilder Duration(double seconds)
+        {
+            if (seconds > 0)
+            {
+                _options.Add(string.Format("-t {0:F6}", seconds));
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 设置 filter_complex 滤镜图
+        /// </summary>
+        public FFmpegCommandBuilder FilterComplex(string filterGraph)
+        {
+            if (!string.IsNullOrEmpty(filterGraph))
+            {
+                _filterComplex = filterGraph;
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 添加音频滤镜（-af 参数）
+        /// </summary>
+        public FFmpegCommandBuilder AudioFilter(string filter)
+        {
+            if (!string.IsNullOrEmpty(filter))
+            {
+                _options.Add(string.Format("-af \"{0}\"", filter));
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 添加流映射（-map 参数）
+        /// </summary>
+        public FFmpegCommandBuilder Map(string streamSpec)
+        {
+            if (!string.IsNullOrEmpty(streamSpec))
+            {
+                _maps.Add(streamSpec);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 添加 concat demuxer 格式输入（-f concat -safe 0）
+        /// </summary>
+        public FFmpegCommandBuilder ConcatDemuxer()
+        {
+            _preInputOptions.Add("-f concat -safe 0");
+            return this;
+        }
+
+        /// <summary>
         /// 构建最终命令行参数字符串
         /// </summary>
         /// <returns>命令行参数</returns>
@@ -185,6 +259,13 @@ namespace MediaTrans.Services
             if (_overwrite)
             {
                 sb.Append("-y ");
+            }
+
+            // 输入前选项（-ss, -f concat 等）
+            foreach (var opt in _preInputOptions)
+            {
+                sb.Append(opt);
+                sb.Append(" ");
             }
 
             // 输入文件
@@ -213,6 +294,18 @@ namespace MediaTrans.Services
                 sb.Append(" ");
             }
 
+            // filter_complex
+            if (!string.IsNullOrEmpty(_filterComplex))
+            {
+                sb.Append(string.Format("-filter_complex \"{0}\" ", _filterComplex));
+            }
+
+            // 流映射
+            foreach (var map in _maps)
+            {
+                sb.Append(string.Format("-map \"{0}\" ", map));
+            }
+
             // 输出文件（双引号包裹）
             sb.Append(string.Format("\"{0}\"", _output));
 
@@ -229,6 +322,8 @@ namespace MediaTrans.Services
             {
                 bool hasNoVideo = _options.Contains("-vn");
                 bool hasNoAudio = _options.Contains("-an");
+                // concat demuxer 使用 -c copy 时不需要显式编解码器
+                bool hasCopy = _videoCodec == "copy" || _audioCodec == "copy";
 
                 // 如果没有禁用视频，必须有视频编解码器
                 if (!hasNoVideo && string.IsNullOrEmpty(_videoCodec))

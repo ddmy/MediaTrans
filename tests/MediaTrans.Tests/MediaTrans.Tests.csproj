@@ -84,6 +84,7 @@
     <Compile Include="GainTests.cs" />
     <Compile Include="UndoRedoTests.cs" />
     <Compile Include="ShortcutTests.cs" />
+    <Compile Include="EditExportTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
