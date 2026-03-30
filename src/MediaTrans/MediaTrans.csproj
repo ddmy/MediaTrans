@@ -76,6 +76,7 @@
     <Compile Include="Models\MediaFileInfo.cs" />
     <Compile Include="Services\ConfigService.cs" />
     <Compile Include="Services\ConversionService.cs" />
+    <Compile Include="Services\ConversionQueueService.cs" />
     <Compile Include="Services\FFmpegCommandBuilder.cs" />
     <Compile Include="Services\FFmpegProgressEventArgs.cs" />
     <Compile Include="Services\FFmpegResult.cs" />

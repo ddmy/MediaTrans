@@ -55,6 +55,7 @@
     <Compile Include="ConversionServiceTests.cs" />
     <Compile Include="ConversionSettingsViewModelTests.cs" />
     <Compile Include="ConversionProgressViewModelTests.cs" />
+    <Compile Include="ConversionQueueServiceTests.cs" />
     <Compile Include="FFmpegCommandBuilderTests.cs" />
     <Compile Include="FFmpegServiceTests.cs" />
     <Compile Include="MediaFileServiceTests.cs" />
