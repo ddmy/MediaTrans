@@ -99,6 +99,7 @@
     <Compile Include="Services\MediaFileService.cs" />
     <Compile Include="Services\VideoFrameCacheService.cs" />
     <Compile Include="Services\SnappingService.cs" />
+    <Compile Include="Services\GainService.cs" />
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="Services\TimelineRulerService.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />
@@ -109,6 +110,7 @@
     <Compile Include="ViewModels\PlaybackViewModel.cs" />
     <Compile Include="ViewModels\VideoPreviewViewModel.cs" />
     <Compile Include="ViewModels\TimelineTrackViewModel.cs" />
+    <Compile Include="ViewModels\GainViewModel.cs" />
     <Compile Include="ViewModels\ConversionSettingsViewModel.cs" />
     <Compile Include="ViewModels\ConversionProgressViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
