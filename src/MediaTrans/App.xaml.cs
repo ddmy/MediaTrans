@@ -23,6 +23,10 @@ namespace MediaTrans
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
 
             var logger = LogService.Instance;
+
+            // 记录系统兼容性信息
+            LogSystemCompatibility(logger);
+
             if (logger != null)
             {
                 logger.Info("应用程序启动");
@@ -37,6 +41,30 @@ namespace MediaTrans
                 logger.Info("应用程序退出");
             }
             base.OnExit(e);
+        }
+
+        /// <summary>
+        /// 记录系统兼容性信息到日志（启动时调用一次）
+        /// </summary>
+        private void LogSystemCompatibility(LogService logger)
+        {
+            try
+            {
+                var compat = new CompatibilityService();
+                if (logger != null)
+                {
+                    logger.Info(compat.GetSystemSummary());
+                    logger.Info(string.Format("DPI: {0}x{1} (缩放 {2:P0}x{3:P0})",
+                        DpiHelper.DpiX, DpiHelper.DpiY, DpiHelper.ScaleX, DpiHelper.ScaleY));
+                }
+            }
+            catch (Exception ex)
+            {
+                if (logger != null)
+                {
+                    logger.Warn(string.Format("系统兼容性信息采集失败: {0}", ex.Message));
+                }
+            }
         }
 
         /// <summary>

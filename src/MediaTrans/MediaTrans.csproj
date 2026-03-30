@@ -14,6 +14,9 @@
     <WarningLevel>4</WarningLevel>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
@@ -94,6 +97,8 @@
     <Compile Include="Services\ConfigService.cs" />
     <Compile Include="Services\ConversionService.cs" />
     <Compile Include="Services\ConversionQueueService.cs" />
+    <Compile Include="Services\CompatibilityService.cs" />
+    <Compile Include="Services\DpiHelper.cs" />
     <Compile Include="Services\FFmpegCommandBuilder.cs" />
     <Compile Include="Services\FFmpegProgressEventArgs.cs" />
     <Compile Include="Services\FFmpegResult.cs" />
@@ -149,6 +154,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="app.manifest" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets" Condition="Exists('..\..\packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets')" />

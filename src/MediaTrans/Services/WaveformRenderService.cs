@@ -81,6 +81,7 @@ namespace MediaTrans.Services
         private int _blockPixelWidth;             // 每块像素宽度（默认 512）
         private int _blockPixelHeight;            // 每块像素高度
         private double _samplesPerPixel;          // 当前缩放级别
+        private double _dpiScale;                 // DPI 缩放因子（1.0=96DPI, 1.5=144DPI, 2.0=192DPI）
 
         // 波形颜色
         private SKColor _waveformColor;
@@ -128,6 +129,16 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// DPI 缩放因子 — 高 DPI 下按此倍率增大渲染像素尺寸，确保波形清晰不模糊
+        /// 1.0 = 96 DPI (100%), 1.25 = 120 DPI (125%), 1.5 = 144 DPI (150%), 2.0 = 192 DPI (200%)
+        /// </summary>
+        public double DpiScale
+        {
+            get { return _dpiScale; }
+            set { _dpiScale = value > 0 ? value : 1.0; }
+        }
+
+        /// <summary>
         /// 创建波形渲染服务
         /// </summary>
         /// <param name="pcmService">PCM 缓存服务</param>
@@ -143,6 +154,7 @@ namespace MediaTrans.Services
             _blockPixelWidth = blockPixelWidth > 0 ? blockPixelWidth : 512;
             _blockPixelHeight = blockPixelHeight > 0 ? blockPixelHeight : 150;
             _samplesPerPixel = 441; // 默认：44100Hz / 100pps ≈ 1秒=100像素
+            _dpiScale = 1.0;      // 默认 96 DPI（无缩放）
             _cachedBlocks = new List<WaveformBlock>();
 
             // 默认颜色配置（暗色主题）
@@ -265,8 +277,17 @@ namespace MediaTrans.Services
                 return null;
             }
 
+            // 高 DPI 下按缩放因子增大渲染尺寸，确保波形清晰
+            int renderWidth = (int)(pixelWidth * _dpiScale);
+            int renderHeight = (int)(_blockPixelHeight * _dpiScale);
+            if (renderWidth < 1) renderWidth = 1;
+            if (renderHeight < 1) renderHeight = 1;
+
+            // 按物理像素尺寸渲染，samplesPerPixel 也要对应缩放
+            double renderSamplesPerPixel = _samplesPerPixel / _dpiScale;
+
             // 创建离屏 Surface 渲染
-            var bitmap = RenderWaveformBitmap(samples, pixelWidth, _blockPixelHeight, _samplesPerPixel);
+            var bitmap = RenderWaveformBitmap(samples, renderWidth, renderHeight, renderSamplesPerPixel);
 
             return new WaveformBlock
             {
