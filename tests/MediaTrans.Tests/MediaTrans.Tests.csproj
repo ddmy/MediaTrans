@@ -49,6 +49,10 @@
     <Reference Include="xunit.abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
       <HintPath>..\..\packages\xunit.abstractions.2.0.3\lib\net35\xunit.abstractions.dll</HintPath>
     </Reference>
+    <Reference Include="SkiaSharp">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\packages\SkiaSharp.1.68.3\lib\net45\SkiaSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioPcmCacheServiceTests.cs" />
@@ -64,6 +68,7 @@
     <Compile Include="MediaFileServiceTests.cs" />
     <Compile Include="Milestone1Tests.cs" />
     <Compile Include="ViewModelBaseTests.cs" />
+    <Compile Include="WaveformRenderServiceTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -78,4 +83,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets" Condition="Exists('..\..\packages\Microsoft.NETFramework.ReferenceAssemblies.net452.1.0.3\build\Microsoft.NETFramework.ReferenceAssemblies.net452.targets')" />
+  <Import Project="..\..\packages\SkiaSharp.1.68.3\build\net45\SkiaSharp.targets" Condition="Exists('..\..\packages\SkiaSharp.1.68.3\build\net45\SkiaSharp.targets')" />
+  <Target Name="CopyCorrectNativeSkiaSharp" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)x64\libSkiaSharp.dll" DestinationFolder="$(OutputPath)" Condition="Exists('$(OutputPath)x64\libSkiaSharp.dll')" OverwriteReadOnlyFiles="true" />
+  </Target>
 </Project>
