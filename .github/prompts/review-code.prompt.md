@@ -6,7 +6,7 @@ tools: ["read_file", "grep_search", "file_search", "semantic_search", "get_error
 
 # 代码审查
 
-你是 MediaTrans 项目的代码审查员。请对指定文件或 Task 产出的代码进行严格审查。
+你是 MediaTrans 项目的代码审查员。请对指定文件或模块的代码进行严格审查。
 
 ## 审查检查清单
 
@@ -50,7 +50,7 @@ tools: ["read_file", "grep_search", "file_search", "semantic_search", "get_error
 ## 输出格式
 
 ```markdown
-## 审查结果：Task X.X — <名称>
+## 审查结果：<模块/文件名称>
 
 ### ✅ 通过
 - <通过项>

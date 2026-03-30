@@ -83,11 +83,12 @@ FFmpeg 子进程必须绑定到 Windows Job Object。主进程退出时自动终
 ### C4 — UI 响应性
 所有耗时操作（>50ms）必须在后台线程执行（`Task.Run` / `ThreadPool`），通过 `Dispatcher.Invoke`/`BeginInvoke` 回调 UI。长操作必须提供取消按钮。禁止在 UI 线程执行 FFmpeg 调用、文件 I/O、网络请求。
 
-### C5 — 编译自测
-每个 Task 完成后必须：
+### C5 — 编译自测（核心纪律）
+**每次编码完成后，必须进行充分自测，确认无问题后方可结束。** 具体要求：
 1. `MSBuild /t:Rebuild` 编译通过（零 Error，零 Warning 尽量）
-2. 运行对应的 xUnit 单元测试全部通过
-3. 确认后方可进入下一个 Task
+2. 运行 xUnit 单元测试全部通过
+3. 如果编译或测试失败，**必须立即排查原因并修复**，循环执行直到全部通过
+4. **禁止跳过自测环节**，禁止在测试未通过时结束工作
 
 ### C6 — 编码安全
 文件读写统一使用 UTF-8 编码：
@@ -161,25 +162,34 @@ var cmd = new FFmpegCommandBuilder()
 3. 不信任用户输入：文件路径、激活码等需校验后再使用
 4. 不在日志中输出敏感信息（激活码、机器码完整值等）
 
-## Task 工作流
+## 自测纪律（最重要的工作习惯）
 
-> **必读**：在开始任何 Task 之前，你 **必须** 先读取 `doc/tasks.md` 获取该 Task 的描述、验收标准、前置依赖和当前进度状态。
+> **铁律**：每次完成编码后，**必须进行充分自测**，确认编译通过且测试全部通过后，才可以认为工作完成。如果发现问题，**必须排查原因并修复，然后重新自测**，循环执行直到全部通过。
 
-开发按 `doc/tasks.md` 中定义的 42 个 Task 顺序推进。每个 Task 必须：
+### 自测流程
 
-1. **开始前**：读取 `doc/tasks.md`，确认前置依赖 Task 全部为 ✅
-2. **开发中**：严格遵守 8 条工程约束
-3. **完成后**：
-   - 编译通过（零 Error）
-   - 对应单元测试通过
-   - 更新 `doc/tasks.md` 中对应 Task 行的状态（⬜→✅）、编译列和测试列
-   - 更新 `doc/tasks.md` 顶部总进度表
-   - 提交 commit，message 格式：`feat(1.5): FFmpeg 集成层` 或 `test(1.14): 里程碑 1 测试`
+1. **编译验证**：`MSBuild /t:Rebuild` 零 Error
+2. **运行单元测试**：全部 xUnit 测试通过
+3. **失败处理**：如编译或测试失败 → 分析错误原因 → 修复代码 → 重新执行步骤 1-2
+4. **通过确认**：编译 + 测试全部通过后方可结束
+
+```
+# 编译
+MSBuild MediaTrans.sln /t:Rebuild /p:Configuration=Debug
+
+# 测试
+packages\xunit.runner.console\tools\net452\xunit.console.exe tests\MediaTrans.Tests\bin\Debug\MediaTrans.Tests.dll
+```
+
+**禁止行为**：
+- ❌ 编码后不编译不测试就结束
+- ❌ 测试失败时跳过或忽略
+- ❌ 仅编译通过但不跑测试
 
 ## Commit Message 格式
 
 ```
-<type>(<task>): <简短描述>
+<type>(<scope>): <简短描述>
 
 <可选详细说明>
 ```
@@ -194,29 +204,24 @@ var cmd = new FFmpegCommandBuilder()
 
 示例：
 ```
-feat(1.5): FFmpeg 集成层 - 进程封装与 Job Object 绑定
-test(1.14): FFmpeg 指令生成器单元测试 + 编码兼容性测试
-fix(2.2): 修复波形图快速缩放时闪烁问题
+feat(converter): 新增 MKV 格式支持
+fix(waveform): 修复波形图快速缩放时闪烁问题
+test(license): 补充授权模块边界测试
 ```
 
 ## 参考文档
 
-> **重要**：以下文档必须在执行任何 Task 前阅读。`copilot-instructions.md` 会自动加载，但 `doc/` 下的文件需要你主动读取。
-
-- 需求文档：`doc/需求.md`
-- Task 列表 + 进度跟踪（含决策记录、验收标准、状态追踪）：`doc/tasks.md`
+- 需求文档：`doc/需求.md` — 需要确认产品需求细节时主动读取
 
 ## .github 目录结构与用途
 
 ```
 .github/
 ├── copilot-instructions.md      # [自动加载] 全局指令，每次对话自动注入
-├── AGENTS.md                    # Agent 角色定义（developer/reviewer/tester/planner）
+├── AGENTS.md                    # Agent 角色定义（developer/reviewer/tester）
 └── prompts/                     # Prompt 命令（可通过 @workspace /命令名 调用）
-    ├── implement-task.prompt.md  # 实现 Task 的 7 步标准流程
     ├── review-code.prompt.md     # 代码审查检查清单（语法/约束/安全/MVVM）
     ├── write-tests.prompt.md     # xUnit 测试编写规范与示例
-    ├── plan-next.prompt.md       # 依赖分析，找出当前可执行的 Task
     └── fix-build.prompt.md       # 编译/测试失败的修复指南 + C# 5.0 速查
 ```
 
@@ -226,16 +231,13 @@ fix(2.2): 修复波形图快速缩放时闪烁问题
 |------|---------|---------|
 | `copilot-instructions.md` | **自动**：每次对话自动注入上下文 | 始终生效，无需手动操作 |
 | `AGENTS.md` | **自动**：VS Code Copilot 识别 Agent 角色 | 以特定角色（developer/reviewer 等）工作时 |
-| `prompts/*.prompt.md` | **按需**：作为 Prompt 命令调用 | 执行特定工作流时（实现/审查/测试/规划/修复） |
-| `doc/tasks.md` | **手动读取**：需主动 `read_file` | **每个 Task 开始前必读** |
+| `prompts/*.prompt.md` | **按需**：作为 Prompt 命令调用 | 执行特定工作流时（审查/测试/修复） |
 | `doc/需求.md` | **手动读取**：需主动 `read_file` | 需要确认产品需求细节时 |
 
 ### AI 工作规则
 
-1. **开始任何 Task 前**：必须先读取 `doc/tasks.md`，获取 Task 描述、验收标准、前置依赖和当前进度
-2. **实现 Task 时**：按照 `prompts/implement-task.prompt.md` 的 7 步流程执行
-3. **完成 Task 后**：更新 `doc/tasks.md` 中的状态行和顶部进度表
-4. **代码审查时**：按照 `prompts/review-code.prompt.md` 的检查清单逐项核查
-5. **编写测试时**：按照 `prompts/write-tests.prompt.md` 的规范编写
-6. **规划下一步时**：按照 `prompts/plan-next.prompt.md` 分析依赖关系
-7. **编译/测试失败时**：按照 `prompts/fix-build.prompt.md` 的流程定位修复
+1. **每次编码完成后**：必须执行完整自测流程（编译 + 测试），失败则修复后重新自测，直到全部通过
+2. **代码审查时**：按照 `prompts/review-code.prompt.md` 的检查清单逐项核查
+3. **编写测试时**：按照 `prompts/write-tests.prompt.md` 的规范编写
+4. **编译/测试失败时**：按照 `prompts/fix-build.prompt.md` 的流程定位修复
+5. **开发中**：严格遵守 8 条工程约束（特别注意 C5 自测纪律）

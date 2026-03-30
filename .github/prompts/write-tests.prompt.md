@@ -98,6 +98,12 @@ ffmpeg -f lavfi -i sine=frequency=440:duration=3 -c:a libmp3lame test_mp3.mp3
 ## 输出
 
 1. 创建/更新测试类文件
+2. 编译通过（零 Error）
+3. 运行测试确认全部通过
+4. 如测试失败，必须排查原因并修复，循环直到全部通过
+2. 编译通过（零 Error）
+3. 运行测试确认全部通过
+4. 如测试失败，必须排查原因并修复，循环直到全部通过
 2. 确保 `MediaTrans.Tests.csproj` 中包含新文件引用
 3. 运行测试并确认通过
 4. 报告测试覆盖情况
