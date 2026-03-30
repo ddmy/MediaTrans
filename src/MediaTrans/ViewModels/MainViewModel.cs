@@ -229,6 +229,12 @@ namespace MediaTrans.ViewModels
                 return;
             }
 
+            // 如果当前无选中项，自动选中第一个新导入的文件
+            if (SelectedFile == null)
+            {
+                SelectedFile = newItems[0];
+            }
+
             // 后台读取元信息
             int total = newItems.Count;
             int completed = 0;
