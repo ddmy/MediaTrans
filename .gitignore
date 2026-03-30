@@ -13,6 +13,7 @@
 packages/
 *.nupkg
 project.lock.json
+.nuget/
 
 # Build results
 [Tt]est[Rr]esult*/
