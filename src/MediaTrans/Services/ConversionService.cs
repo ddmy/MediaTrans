@@ -256,6 +256,82 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// 构建仅提取音频的 FFmpeg 命令参数（-vn 去视频轨）
+        /// </summary>
+        public string BuildExtractAudioArguments(MediaFileInfo source, string outputPath, string targetFormat, ConversionPreset preset)
+        {
+            var builder = new FFmpegCommandBuilder();
+            builder.Input(source.FilePath);
+            builder.NoVideo();
+
+            if (preset != null && !string.IsNullOrEmpty(preset.AudioCodec))
+            {
+                builder.AudioCodec(preset.AudioCodec);
+                if (!string.IsNullOrEmpty(preset.AudioBitrate))
+                {
+                    builder.AudioBitrate(preset.AudioBitrate);
+                }
+            }
+            else
+            {
+                // 使用目标格式的默认音频编解码器
+                var mapping = GetDefaultCodecs(targetFormat);
+                if (mapping != null && !string.IsNullOrEmpty(mapping.AudioCodec))
+                {
+                    builder.AudioCodec(mapping.AudioCodec);
+                }
+            }
+
+            builder.Threads(0);
+            builder.Overwrite(true);
+            builder.Output(outputPath);
+
+            return builder.Build();
+        }
+
+        /// <summary>
+        /// 构建仅保留视频的 FFmpeg 命令参数（-an 去音频轨）
+        /// </summary>
+        public string BuildExtractVideoArguments(MediaFileInfo source, string outputPath, string targetFormat, ConversionPreset preset)
+        {
+            var builder = new FFmpegCommandBuilder();
+            builder.Input(source.FilePath);
+            builder.NoAudio();
+
+            if (preset != null && !string.IsNullOrEmpty(preset.VideoCodec))
+            {
+                builder.VideoCodec(preset.VideoCodec);
+                if (!string.IsNullOrEmpty(preset.VideoBitrate))
+                {
+                    builder.VideoBitrate(preset.VideoBitrate);
+                }
+                if (preset.Width > 0 && preset.Height > 0)
+                {
+                    builder.Resolution(preset.Width, preset.Height);
+                }
+                if (preset.FrameRate > 0)
+                {
+                    builder.FrameRate(preset.FrameRate);
+                }
+            }
+            else
+            {
+                // 使用目标格式的默认视频编解码器
+                var mapping = GetDefaultCodecs(targetFormat);
+                if (mapping != null && !string.IsNullOrEmpty(mapping.VideoCodec))
+                {
+                    builder.VideoCodec(mapping.VideoCodec);
+                }
+            }
+
+            builder.Threads(0);
+            builder.Overwrite(true);
+            builder.Output(outputPath);
+
+            return builder.Build();
+        }
+
+        /// <summary>
         /// 获取所有支持的输出格式
         /// </summary>
         public static List<string> GetSupportedOutputFormats()

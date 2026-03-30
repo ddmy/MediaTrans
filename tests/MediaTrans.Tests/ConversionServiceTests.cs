@@ -265,5 +265,103 @@ namespace MediaTrans.Tests
         }
 
         #endregion
+
+        #region BuildExtractAudioArguments 测试
+
+        [Fact]
+        public void BuildExtractAudioArguments_DefaultMp3_HasVnAndLame()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+
+            string args = service.BuildExtractAudioArguments(source, @"C:\test\output.mp3", ".mp3", null);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a libmp3lame", args);
+            Assert.DoesNotContain("-c:v", args);
+        }
+
+        [Fact]
+        public void BuildExtractAudioArguments_WithPreset_UsesPresetAudioCodec()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+            var preset = new ConversionPreset
+            {
+                AudioCodec = "flac",
+                AudioBitrate = ""
+            };
+
+            string args = service.BuildExtractAudioArguments(source, @"C:\test\output.flac", ".flac", preset);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a flac", args);
+        }
+
+        [Fact]
+        public void BuildExtractAudioArguments_WavFormat_PcmCodec()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+
+            string args = service.BuildExtractAudioArguments(source, @"C:\test\output.wav", ".wav", null);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a pcm_s16le", args);
+        }
+
+        #endregion
+
+        #region BuildExtractVideoArguments 测试
+
+        [Fact]
+        public void BuildExtractVideoArguments_DefaultMp4_HasAnAndH264()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+
+            string args = service.BuildExtractVideoArguments(source, @"C:\test\output.mp4", ".mp4", null);
+
+            Assert.Contains("-an", args);
+            Assert.Contains("-c:v libx264", args);
+            Assert.DoesNotContain("-c:a", args);
+        }
+
+        [Fact]
+        public void BuildExtractVideoArguments_WithPreset_UsesPresetVideoCodec()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+            var preset = new ConversionPreset
+            {
+                VideoCodec = "libx265",
+                VideoBitrate = "4M",
+                Width = 1280,
+                Height = 720,
+                FrameRate = 24
+            };
+
+            string args = service.BuildExtractVideoArguments(source, @"C:\test\output.mp4", ".mp4", preset);
+
+            Assert.Contains("-an", args);
+            Assert.Contains("-c:v libx265", args);
+            Assert.Contains("-b:v 4M", args);
+            Assert.Contains("-s 1280x720", args);
+            Assert.Contains("-r 24", args);
+        }
+
+        [Fact]
+        public void BuildExtractVideoArguments_WebmFormat_VpxCodec()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+
+            string args = service.BuildExtractVideoArguments(source, @"C:\test\output.webm", ".webm", null);
+
+            Assert.Contains("-an", args);
+            Assert.Contains("-c:v libvpx", args);
+        }
+
+        #endregion
     }
 }
