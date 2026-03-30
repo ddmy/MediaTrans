@@ -17,19 +17,26 @@ namespace MediaTrans.ViewModels
         private string _title;
         private string _statusText;
         private readonly MediaFileService _mediaFileService;
+        private readonly ConfigService _configService;
+        private readonly ConversionService _conversionService;
         private MediaFileInfo _selectedFile;
         private CancellationTokenSource _importCts;
+        private CancellationTokenSource _conversionCts;
+        private bool _isConverting;
         private bool _isLicensed;
 
         public MainViewModel()
         {
             _title = "MediaTrans";
             _statusText = "就绪";
-            var configService = new ConfigService();
-            _mediaFileService = new MediaFileService(configService);
+            _configService = new ConfigService();
+            _mediaFileService = new MediaFileService(_configService);
+            _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
             Files = new ObservableCollection<MediaFileInfo>();
             ImportFilesCommand = new RelayCommand(OnImportFiles);
             OpenLicenseCommand = new RelayCommand(OnOpenLicense);
+            StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
+            StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
 
             // 初始化授权状态
             InitializeLicenseStatus();
@@ -43,9 +50,13 @@ namespace MediaTrans.ViewModels
             _title = "MediaTrans";
             _statusText = "就绪";
             _mediaFileService = mediaFileService;
+            _configService = new ConfigService();
+            _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
             Files = new ObservableCollection<MediaFileInfo>();
             ImportFilesCommand = new RelayCommand(OnImportFiles);
             OpenLicenseCommand = new RelayCommand(OnOpenLicense);
+            StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
+            StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
             _isLicensed = false;
         }
 
@@ -78,7 +89,13 @@ namespace MediaTrans.ViewModels
         public MediaFileInfo SelectedFile
         {
             get { return _selectedFile; }
-            set { SetProperty(ref _selectedFile, value, "SelectedFile"); }
+            set
+            {
+                if (SetProperty(ref _selectedFile, value, "SelectedFile"))
+                {
+                    StartConversionCommand.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         /// <summary>
@@ -90,6 +107,16 @@ namespace MediaTrans.ViewModels
         /// 打开许可证管理命令
         /// </summary>
         public RelayCommand OpenLicenseCommand { get; private set; }
+
+        /// <summary>
+        /// 开始转换命令
+        /// </summary>
+        public RelayCommand StartConversionCommand { get; private set; }
+
+        /// <summary>
+        /// 停止转换命令
+        /// </summary>
+        public RelayCommand StopConversionCommand { get; private set; }
 
         /// <summary>
         /// 是否已授权（控制激活横幅可见性）
@@ -285,6 +312,100 @@ namespace MediaTrans.ViewModels
                         }));
                     }
                 });
+            }
+        }
+
+        private bool CanStartConversion(object parameter)
+        {
+            return SelectedFile != null && !_isConverting;
+        }
+
+        private bool CanStopConversion(object parameter)
+        {
+            return _isConverting;
+        }
+
+        private void OnStartConversion(object parameter)
+        {
+            if (SelectedFile == null)
+            {
+                StatusText = "请先选择要转换的文件";
+                return;
+            }
+
+            if (_isConverting)
+            {
+                return;
+            }
+
+            try
+            {
+                var source = SelectedFile;
+                string targetFormat = source.HasVideo ? ".mp4" : ".mp3";
+                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                var task = new ConversionTask
+                {
+                    SourceFile = source,
+                    OutputPath = outputPath,
+                    TargetFormat = targetFormat,
+                    Preset = null
+                };
+
+                _conversionCts = new CancellationTokenSource();
+                _isConverting = true;
+                StartConversionCommand.RaiseCanExecuteChanged();
+                StopConversionCommand.RaiseCanExecuteChanged();
+                StatusText = string.Format("开始转换: {0}", source.FileName);
+
+                _conversionService.ConvertAsync(task, _conversionCts.Token).ContinueWith(t =>
+                {
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _isConverting = false;
+                        StartConversionCommand.RaiseCanExecuteChanged();
+                        StopConversionCommand.RaiseCanExecuteChanged();
+
+                        if (t.IsFaulted)
+                        {
+                            StatusText = string.Format("转换失败: {0}",
+                                t.Exception != null && t.Exception.InnerException != null
+                                    ? t.Exception.InnerException.Message
+                                    : "未知错误");
+                            return;
+                        }
+
+                        var result = t.Result;
+                        if (result.Cancelled)
+                        {
+                            StatusText = "转换已取消";
+                        }
+                        else if (result.Success)
+                        {
+                            StatusText = string.Format("转换完成: {0}", outputPath);
+                        }
+                        else
+                        {
+                            StatusText = string.Format("转换失败: {0}", result.ErrorMessage);
+                        }
+                    }));
+                });
+            }
+            catch (Exception ex)
+            {
+                _isConverting = false;
+                StartConversionCommand.RaiseCanExecuteChanged();
+                StopConversionCommand.RaiseCanExecuteChanged();
+                StatusText = string.Format("无法开始转换: {0}", ex.Message);
+            }
+        }
+
+        private void OnStopConversion(object parameter)
+        {
+            if (_conversionCts != null && !_conversionCts.IsCancellationRequested)
+            {
+                _conversionCts.Cancel();
+                StatusText = "正在取消转换...";
             }
         }
     }

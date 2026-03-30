@@ -99,8 +99,10 @@
                                 Command="{Binding ImportFilesCommand}"
                                 Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
                         <Button Content="开始转换" Style="{StaticResource AccentButton}" 
+                            Command="{Binding StartConversionCommand}"
                                 Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
                         <Button Content="停止" Style="{StaticResource DarkButton}" 
+                            Command="{Binding StopConversionCommand}"
                                 Padding="10,3" Margin="0,0,16,0" FontSize="12"/>
                         <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" 
                                    Margin="0,4" Background="{DynamicResource BorderDefaultBrush}"/>
