@@ -66,14 +66,33 @@
             <!-- 主内容区 -->
             <Grid Grid.Row="1">
                 <Grid.RowDefinitions>
+                    <!-- 激活提示横幅（未激活时显示） -->
+                    <RowDefinition Height="Auto"/>
                     <!-- 工具栏 -->
                     <RowDefinition Height="36"/>
                     <!-- 左侧文件列表 + 中央预览/编辑区 -->
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
+                <!-- 激活提示横幅 -->
+                <Border Grid.Row="0" Background="#FFE05050" Padding="6,4"
+                        Visibility="{Binding IsLicensed, Converter={StaticResource BoolToVisibilityInverse}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="当前为免费版，部分功能受限。激活专业版解锁全部功能。" 
+                                   Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="8,0"/>
+                        <Button Grid.Column="1" Content="立即激活" 
+                                Style="{StaticResource DarkButton}"
+                                Command="{Binding OpenLicenseCommand}"
+                                Padding="10,2" Margin="0,0,4,0" FontSize="11"/>
+                    </Grid>
+                </Border>
+
                 <!-- 顶部工具栏 -->
-                <Border Grid.Row="0" Background="{DynamicResource BgMediumBrush}"
+                <Border Grid.Row="1" Background="{DynamicResource BgMediumBrush}"
                         BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
                         <Button Content="导入文件" Style="{StaticResource DarkButton}" 
@@ -86,12 +105,13 @@
                         <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" 
                                    Margin="0,4" Background="{DynamicResource BorderDefaultBrush}"/>
                         <Button Content="设置" Style="{StaticResource DarkButton}" 
-                                Padding="10,3" Margin="16,0,0,0" FontSize="12"/>
+                                Command="{Binding OpenLicenseCommand}"
+                                Padding="10,3" Margin="16,0,0,0" FontSize="12" ToolTip="许可证管理"/>
                     </StackPanel>
                 </Border>
 
                 <!-- 左侧文件列表 + 中央预览区 -->
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <!-- 左侧文件列表面板 -->
                         <ColumnDefinition Width="260" MinWidth="180" MaxWidth="500"/>

@@ -19,6 +19,7 @@ namespace MediaTrans.ViewModels
         private readonly MediaFileService _mediaFileService;
         private MediaFileInfo _selectedFile;
         private CancellationTokenSource _importCts;
+        private bool _isLicensed;
 
         public MainViewModel()
         {
@@ -28,6 +29,10 @@ namespace MediaTrans.ViewModels
             _mediaFileService = new MediaFileService(configService);
             Files = new ObservableCollection<MediaFileInfo>();
             ImportFilesCommand = new RelayCommand(OnImportFiles);
+            OpenLicenseCommand = new RelayCommand(OnOpenLicense);
+
+            // 初始化授权状态
+            InitializeLicenseStatus();
         }
 
         /// <summary>
@@ -40,6 +45,8 @@ namespace MediaTrans.ViewModels
             _mediaFileService = mediaFileService;
             Files = new ObservableCollection<MediaFileInfo>();
             ImportFilesCommand = new RelayCommand(OnImportFiles);
+            OpenLicenseCommand = new RelayCommand(OnOpenLicense);
+            _isLicensed = false;
         }
 
         /// <summary>
@@ -78,6 +85,69 @@ namespace MediaTrans.ViewModels
         /// 导入文件命令
         /// </summary>
         public RelayCommand ImportFilesCommand { get; private set; }
+
+        /// <summary>
+        /// 打开许可证管理命令
+        /// </summary>
+        public RelayCommand OpenLicenseCommand { get; private set; }
+
+        /// <summary>
+        /// 是否已授权（控制激活横幅可见性）
+        /// </summary>
+        public bool IsLicensed
+        {
+            get { return _isLicensed; }
+            set { SetProperty(ref _isLicensed, value, "IsLicensed"); }
+        }
+
+        /// <summary>
+        /// 初始化授权状态
+        /// </summary>
+        private void InitializeLicenseStatus()
+        {
+            try
+            {
+                var machineCodeService = new MachineCodeService();
+                var licenseService = new LicenseService(machineCodeService);
+                licenseService.CheckOnStartup();
+                _isLicensed = licenseService.IsActivated;
+            }
+            catch (Exception)
+            {
+                _isLicensed = false;
+            }
+        }
+
+        /// <summary>
+        /// 打开许可证管理窗口
+        /// </summary>
+        private void OnOpenLicense(object parameter)
+        {
+            try
+            {
+                var machineCodeService = new MachineCodeService();
+                var licenseService = new LicenseService(machineCodeService);
+                licenseService.CheckOnStartup();
+
+                var vm = new LicenseViewModel(licenseService, machineCodeService);
+                var window = new Views.LicenseWindow();
+                window.DataContext = vm;
+                window.Owner = Application.Current.MainWindow;
+
+                // 激活成功后刷新主窗口状态
+                vm.ActivationSucceeded += (s, e) =>
+                {
+                    IsLicensed = true;
+                    Title = "MediaTrans 专业版";
+                };
+
+                window.ShowDialog();
+            }
+            catch (Exception)
+            {
+                // 忽略许可证窗口打开失败
+            }
+        }
 
         /// <summary>
         /// 打开文件对话框导入文件
