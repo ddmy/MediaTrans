@@ -92,6 +92,7 @@
     <Compile Include="LicenseIssuerTests.cs" />
     <Compile Include="MachineCodeTests.cs" />
     <Compile Include="LicenseServiceTests.cs" />
+    <Compile Include="PaywallServiceTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

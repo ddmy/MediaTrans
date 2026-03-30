@@ -206,6 +206,18 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// 添加视频滤镜（-vf 参数）
+        /// </summary>
+        public FFmpegCommandBuilder VideoFilter(string filter)
+        {
+            if (!string.IsNullOrEmpty(filter))
+            {
+                _options.Add(string.Format("-vf \"{0}\"", filter));
+            }
+            return this;
+        }
+
+        /// <summary>
         /// 添加音频滤镜（-af 参数）
         /// </summary>
         public FFmpegCommandBuilder AudioFilter(string filter)

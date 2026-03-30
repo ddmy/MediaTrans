@@ -107,6 +107,7 @@
     <Compile Include="Services\EditExportService.cs" />
     <Compile Include="Services\MachineCodeService.cs" />
     <Compile Include="Services\LicenseService.cs" />
+    <Compile Include="Services\PaywallService.cs" />
     <Compile Include="Services\UndoableCommands.cs" />
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="Services\TimelineRulerService.cs" />
