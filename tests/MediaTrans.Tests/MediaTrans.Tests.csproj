@@ -61,6 +61,7 @@
     <Compile Include="HardwareAccelerationServiceTests.cs" />
     <Compile Include="LogServiceTests.cs" />
     <Compile Include="MediaFileServiceTests.cs" />
+    <Compile Include="Milestone1Tests.cs" />
     <Compile Include="ViewModelBaseTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
