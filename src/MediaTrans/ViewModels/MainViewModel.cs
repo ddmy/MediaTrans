@@ -34,17 +34,7 @@ namespace MediaTrans.ViewModels
             _mediaFileService = new MediaFileService(_configService);
             _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
             Files = new ObservableCollection<MediaFileInfo>();
-            ImportFilesCommand = new RelayCommand(OnImportFiles);
-            OpenLicenseCommand = new RelayCommand(OnOpenLicense);
-            StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
-            StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
-            SettingsVm = new ConversionSettingsViewModel(_configService);
-            ProgressVm = new ConversionProgressViewModel();
-            ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
-            ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
-            SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
-            SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
-            _conversionService.ProgressChanged += OnConversionProgressChanged;
+            InitializeCommands();
 
             // 初始化授权状态
             InitializeLicenseStatus();
@@ -61,17 +51,7 @@ namespace MediaTrans.ViewModels
             _configService = new ConfigService();
             _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
             Files = new ObservableCollection<MediaFileInfo>();
-            ImportFilesCommand = new RelayCommand(OnImportFiles);
-            OpenLicenseCommand = new RelayCommand(OnOpenLicense);
-            StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
-            StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
-            SettingsVm = new ConversionSettingsViewModel(_configService);
-            ProgressVm = new ConversionProgressViewModel();
-            ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
-            ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
-            SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
-            SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
-            _conversionService.ProgressChanged += OnConversionProgressChanged;
+            InitializeCommands();
             _isLicensed = false;
         }
 
@@ -180,6 +160,21 @@ namespace MediaTrans.ViewModels
         /// 切换到编辑器模式命令
         /// </summary>
         public RelayCommand SwitchToEditorCommand { get; private set; }
+
+        private void InitializeCommands()
+        {
+            ImportFilesCommand = new RelayCommand(OnImportFiles);
+            OpenLicenseCommand = new RelayCommand(OnOpenLicense);
+            StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
+            StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
+            SettingsVm = new ConversionSettingsViewModel(_configService);
+            ProgressVm = new ConversionProgressViewModel();
+            ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
+            ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
+            SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
+            SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
+            _conversionService.ProgressChanged += OnConversionProgressChanged;
+        }
 
         /// <summary>
         /// 初始化授权状态
@@ -398,11 +393,7 @@ namespace MediaTrans.ViewModels
                 string targetFormat = SettingsVm.SelectedFormat ?? (source.HasVideo ? ".mp4" : ".mp3");
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
-                ConversionPreset preset = null;
-                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
-                {
-                    preset = SettingsVm.BuildCurrentPreset();
-                }
+                ConversionPreset preset = GetPresetFromSettings();
 
                 var task = new ConversionTask
                 {
@@ -427,9 +418,7 @@ namespace MediaTrans.ViewModels
 
                         if (t.IsFaulted)
                         {
-                            string errMsg = t.Exception != null && t.Exception.InnerException != null
-                                ? t.Exception.InnerException.Message
-                                : "未知错误";
+                            string errMsg = GetErrorMessage(t.Exception);
                             ProgressVm.CompleteConversion(false, errMsg);
                             StatusText = string.Format("转换失败: {0}", errMsg);
                             return;
@@ -492,11 +481,7 @@ namespace MediaTrans.ViewModels
                 string targetFormat = ".mp3";
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
-                ConversionPreset preset = null;
-                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
-                {
-                    preset = SettingsVm.BuildCurrentPreset();
-                }
+                ConversionPreset preset = GetPresetFromSettings();
 
                 var task = new ConversionTask
                 {
@@ -521,9 +506,7 @@ namespace MediaTrans.ViewModels
 
                         if (t.IsFaulted)
                         {
-                            string errMsg = t.Exception != null && t.Exception.InnerException != null
-                                ? t.Exception.InnerException.Message
-                                : "未知错误";
+                            string errMsg = GetErrorMessage(t.Exception);
                             ProgressVm.CompleteConversion(false, errMsg);
                             StatusText = string.Format("提取音频失败: {0}", errMsg);
                             return;
@@ -569,11 +552,7 @@ namespace MediaTrans.ViewModels
                 string targetFormat = ".mp4";
                 string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
-                ConversionPreset preset = null;
-                if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
-                {
-                    preset = SettingsVm.BuildCurrentPreset();
-                }
+                ConversionPreset preset = GetPresetFromSettings();
 
                 var task = new ConversionTask
                 {
@@ -598,9 +577,7 @@ namespace MediaTrans.ViewModels
 
                         if (t.IsFaulted)
                         {
-                            string errMsg = t.Exception != null && t.Exception.InnerException != null
-                                ? t.Exception.InnerException.Message
-                                : "未知错误";
+                            string errMsg = GetErrorMessage(t.Exception);
                             ProgressVm.CompleteConversion(false, errMsg);
                             StatusText = string.Format("提取视频失败: {0}", errMsg);
                             return;
@@ -641,6 +618,30 @@ namespace MediaTrans.ViewModels
         private void OnSwitchToEditor(object parameter)
         {
             IsEditorMode = true;
+        }
+
+        /// <summary>
+        /// 从当前设置构建预设（有自定义参数或已选预设时返回非 null）
+        /// </summary>
+        private ConversionPreset GetPresetFromSettings()
+        {
+            if (SettingsVm.IsCustomMode || SettingsVm.SelectedPreset != null)
+            {
+                return SettingsVm.BuildCurrentPreset();
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 从已完成（可能已故障）的任务异常中提取错误消息
+        /// </summary>
+        private static string GetErrorMessage(System.AggregateException ex)
+        {
+            if (ex != null && ex.InnerException != null)
+            {
+                return ex.InnerException.Message;
+            }
+            return "未知错误";
         }
 
         private void RaiseAllConversionCanExecuteChanged()
