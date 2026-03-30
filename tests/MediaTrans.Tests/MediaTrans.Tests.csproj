@@ -87,6 +87,7 @@
     <Compile Include="EditExportTests.cs" />
     <Compile Include="PerformanceStressTests.cs" />
     <Compile Include="Milestone2Tests.cs" />
+    <Compile Include="KeyGeneratorTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -94,6 +95,10 @@
     <ProjectReference Include="..\..\src\MediaTrans\MediaTrans.csproj">
       <Project>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</Project>
       <Name>MediaTrans</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\tools\KeyGenerator\KeyGenerator.csproj">
+      <Project>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</Project>
+      <Name>KeyGenerator</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

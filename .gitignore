@@ -26,3 +26,7 @@ Desktop.ini
 
 # FFmpeg binaries (tracked separately)
 lib/ffmpeg/*.exe
+
+# RSA 密钥对（私钥不入库）
+keys/
+*.pem
