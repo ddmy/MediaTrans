@@ -14,6 +14,7 @@ namespace MediaTrans.Services
     {
         private readonly FFmpegService _ffmpegService;
         private readonly ConfigService _configService;
+        private readonly HardwareAccelerationService _hwAccelService;
 
         /// <summary>
         /// 格式与默认编解码器映射表
@@ -46,6 +47,17 @@ namespace MediaTrans.Services
         {
             _ffmpegService = ffmpegService;
             _configService = configService;
+            _hwAccelService = null;
+        }
+
+        /// <summary>
+        /// 创建带硬件加速服务的转换服务
+        /// </summary>
+        public ConversionService(FFmpegService ffmpegService, ConfigService configService, HardwareAccelerationService hwAccelService)
+        {
+            _ffmpegService = ffmpegService;
+            _configService = configService;
+            _hwAccelService = hwAccelService;
         }
 
         /// <summary>
@@ -97,7 +109,9 @@ namespace MediaTrans.Services
                 {
                     if (!string.IsNullOrEmpty(preset.VideoCodec))
                     {
-                        builder.VideoCodec(preset.VideoCodec);
+                        // 尝试硬件加速替换
+                        string resolvedCodec = ResolveVideoCodec(preset.VideoCodec);
+                        builder.VideoCodec(resolvedCodec);
                     }
                     if (preset.Width > 0 && preset.Height > 0)
                     {
@@ -134,7 +148,9 @@ namespace MediaTrans.Services
                     }
                     else if (!string.IsNullOrEmpty(mapping.VideoCodec))
                     {
-                        builder.VideoCodec(mapping.VideoCodec);
+                        // 尝试硬件加速替换
+                        string resolvedCodec = ResolveVideoCodec(mapping.VideoCodec);
+                        builder.VideoCodec(resolvedCodec);
                     }
 
                     if (!string.IsNullOrEmpty(mapping.AudioCodec))
@@ -150,6 +166,19 @@ namespace MediaTrans.Services
             builder.Output(outputPath);
 
             return builder.Build();
+        }
+
+        /// <summary>
+        /// 通过硬件加速服务解析视频编解码器
+        /// 如果硬件加速可用且已启用，返回硬件编码器；否则返回原软件编码器
+        /// </summary>
+        public string ResolveVideoCodec(string softwareCodec)
+        {
+            if (_hwAccelService != null)
+            {
+                return _hwAccelService.ResolveVideoCodec(softwareCodec);
+            }
+            return softwareCodec;
         }
 
         /// <summary>
@@ -300,7 +329,9 @@ namespace MediaTrans.Services
 
             if (preset != null && !string.IsNullOrEmpty(preset.VideoCodec))
             {
-                builder.VideoCodec(preset.VideoCodec);
+                // 尝试硬件加速替换
+                string resolvedCodec = ResolveVideoCodec(preset.VideoCodec);
+                builder.VideoCodec(resolvedCodec);
                 if (!string.IsNullOrEmpty(preset.VideoBitrate))
                 {
                     builder.VideoBitrate(preset.VideoBitrate);
@@ -320,7 +351,9 @@ namespace MediaTrans.Services
                 var mapping = GetDefaultCodecs(targetFormat);
                 if (mapping != null && !string.IsNullOrEmpty(mapping.VideoCodec))
                 {
-                    builder.VideoCodec(mapping.VideoCodec);
+                    // 尝试硬件加速替换
+                    string resolvedCodec = ResolveVideoCodec(mapping.VideoCodec);
+                    builder.VideoCodec(resolvedCodec);
                 }
             }
 

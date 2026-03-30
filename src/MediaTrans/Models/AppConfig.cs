@@ -79,6 +79,11 @@ namespace MediaTrans.Models
         public bool HardwareAccelerationEnabled { get; set; }
 
         /// <summary>
+        /// 首选硬件编码器类型：auto（自动检测，优先 NVENC）、nvenc、qsv
+        /// </summary>
+        public string PreferredHardwareEncoder { get; set; }
+
+        /// <summary>
         /// 最大并行转换任务数
         /// </summary>
         public int MaxParallelTasks { get; set; }
@@ -109,6 +114,7 @@ namespace MediaTrans.Models
                 WatermarkPosition = "RightBottom",
                 FreeMaxExportSeconds = 60,
                 HardwareAccelerationEnabled = true,
+                PreferredHardwareEncoder = "auto",
                 MaxParallelTasks = 1,
                 ConversionPresets = new List<ConversionPreset>()
             };

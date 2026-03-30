@@ -81,6 +81,7 @@
     <Compile Include="Services\FFmpegProgressEventArgs.cs" />
     <Compile Include="Services\FFmpegResult.cs" />
     <Compile Include="Services\FFmpegService.cs" />
+    <Compile Include="Services\HardwareAccelerationService.cs" />
     <Compile Include="Services\JobObject.cs" />
     <Compile Include="Services\MediaFileService.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />

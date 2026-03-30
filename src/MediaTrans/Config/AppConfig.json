@@ -13,6 +13,7 @@
   "WatermarkPosition": "RightBottom",
   "FreeMaxExportSeconds": 60,
   "HardwareAccelerationEnabled": true,
+  "PreferredHardwareEncoder": "auto",
   "MaxParallelTasks": 1,
   "ConversionPresets": [
     {
