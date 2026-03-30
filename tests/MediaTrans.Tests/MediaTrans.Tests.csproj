@@ -71,6 +71,7 @@
     <Compile Include="WaveformRenderServiceTests.cs" />
     <Compile Include="WaveformViewModelTests.cs" />
     <Compile Include="TimelineTests.cs" />
+    <Compile Include="SelectionViewModelTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
