@@ -289,7 +289,7 @@ namespace MediaTrans.ViewModels
             StopCommand = new RelayCommand(OnStop, CanStop);
             TrimExportCommand = new RelayCommand(OnTrimExport, CanExport);
             StopExportCommand = new RelayCommand(OnStopExport, CanStopExport);
-            MarkInCommand = new RelayCommand(OnMarkIn, o => _currentFile != null && _isPlaying);
+            MarkInCommand = new RelayCommand(OnMarkIn, o => _currentFile != null);
             MarkOutCommand = new RelayCommand(OnMarkOut, o => _currentFile != null);
             SelectAllCommand = new RelayCommand(OnSelectAll, o => _currentFile != null);
             AddSpliceFileCommand = new RelayCommand(OnAddSpliceFile);
@@ -408,7 +408,12 @@ namespace MediaTrans.ViewModels
                 using (var reader = new NAudio.Wave.AudioFileReader(filePath))
                 {
                     int channels = reader.WaveFormat.Channels;
-                    // AudioFileReader.Length returns bytes, each float is 4 bytes
+                    // Guard: channels must be > 0 to avoid divide-by-zero
+                    if (channels <= 0) return;
+
+                    // AudioFileReader.Length returns byte count;
+                    // AudioFileReader always delivers 32-bit float samples (4 bytes each),
+                    // so total frames = Length / (4 * channels)
                     long totalFrames = reader.Length / (4 * channels);
 
                     if (totalFrames <= 0 || pixelWidth <= 0)
@@ -432,7 +437,6 @@ namespace MediaTrans.ViewModels
                     while ((floatsRead = reader.Read(readBuffer, 0, ReadBufferFloats)) > 0)
                     {
                         int framesRead = floatsRead / channels;
-                        if (framesRead == 0 && channels == 0) break;
 
                         for (int i = 0; i < framesRead; i++)
                         {
@@ -774,20 +778,26 @@ namespace MediaTrans.ViewModels
                 foreach (var path in dialog.FileNames)
                 {
                     double dur = 0;
+                    string durText = "--:--";
                     try
                     {
                         using (var reader = new NAudio.Wave.AudioFileReader(path))
                         {
                             dur = reader.TotalTime.TotalSeconds;
+                            durText = SecondsToTimeText(dur);
                         }
                     }
-                    catch { }
+                    catch (Exception)
+                    {
+                        // 无法通过 NAudio 读取时长（如纯视频文件），保留默认值
+                        durText = "未知时长";
+                    }
 
                     _spliceFiles.Add(new SpliceEntry
                     {
                         FilePath = path,
                         FileName = Path.GetFileName(path),
-                        DurationText = SecondsToTimeText(dur),
+                        DurationText = durText,
                         TrimStart = 0,
                         TrimEnd = dur
                     });
