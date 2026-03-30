@@ -81,6 +81,7 @@
     <Compile Include="TimelineTrackTests.cs" />
     <Compile Include="SnappingServiceTests.cs" />
     <Compile Include="GainTests.cs" />
+    <Compile Include="UndoRedoTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
