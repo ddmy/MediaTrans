@@ -54,6 +54,7 @@
     <Compile Include="ConfigServiceTests.cs" />
     <Compile Include="FFmpegCommandBuilderTests.cs" />
     <Compile Include="FFmpegServiceTests.cs" />
+    <Compile Include="MediaFileServiceTests.cs" />
     <Compile Include="ViewModelBaseTests.cs" />
     <Compile Include="RelayCommandTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

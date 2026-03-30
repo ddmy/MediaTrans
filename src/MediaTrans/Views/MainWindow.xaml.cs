@@ -2,17 +2,50 @@ using System;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using MediaTrans.ViewModels;
 
 namespace MediaTrans.Views
 {
     /// <summary>
-    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮
+    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮、文件拖放
     /// </summary>
     public partial class MainWindow : Window
     {
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        /// <summary>
+        /// 拖拽文件进入窗口时的处理
+        /// </summary>
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effects = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 文件拖放到窗口时导入文件
+        /// </summary>
+        private void Window_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                var vm = DataContext as MainViewModel;
+                if (vm != null && files != null)
+                {
+                    vm.ImportFilesByPath(files);
+                }
+            }
         }
 
         /// <summary>
