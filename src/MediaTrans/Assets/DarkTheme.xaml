@@ -9,6 +9,8 @@
     <!-- ===== 值转换器 ===== -->
     <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
     <conv:BoolToVisibilityInverseConverter x:Key="BoolToVisibilityInverse"/>
+    <conv:ProgressToLeftMarginConverter x:Key="ProgressToLeftMargin"/>
+    <conv:TrimRegionMarginConverter x:Key="TrimRegionMargin"/>
 
     <!-- ===== 颜色定义 ===== -->
     <!-- 背景色 -->

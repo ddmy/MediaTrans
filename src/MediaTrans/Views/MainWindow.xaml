@@ -98,17 +98,14 @@
                         <Button Content="导入文件" Style="{StaticResource DarkButton}" 
                                 Command="{Binding ImportFilesCommand}"
                                 Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
-                        <Button Content="开始转换" Style="{StaticResource AccentButton}" 
-                            Command="{Binding StartConversionCommand}"
-                                Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
-                        <Button Content="停止" Style="{StaticResource DarkButton}" 
-                            Command="{Binding StopConversionCommand}"
-                                Padding="10,3" Margin="0,0,16,0" FontSize="12"/>
                         <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" 
                                    Margin="0,4" Background="{DynamicResource BorderDefaultBrush}"/>
                         <Button Content="许可证" Style="{StaticResource DarkButton}" 
                                 Command="{Binding OpenLicenseCommand}"
-                                Padding="10,3" Margin="16,0,0,0" FontSize="12" ToolTip="许可证管理"/>
+                                Padding="10,3" Margin="4,0,0,0" FontSize="12" ToolTip="许可证管理"/>
+                        <Button Content="ℹ 关于" Style="{StaticResource DarkButton}" 
+                                Command="{Binding OpenAboutCommand}"
+                                Padding="10,3" Margin="4,0,0,0" FontSize="12" ToolTip="关于我们"/>
                     </StackPanel>
                 </Border>
 
@@ -155,8 +152,8 @@
                                                        Foreground="{DynamicResource FgPrimaryBrush}" 
                                                        FontSize="12" TextTrimming="CharacterEllipsis"/>
                                             <!-- 元信息摘要 -->
-                                            <TextBlock Grid.Row="1" FontSize="10"
-                                                       Foreground="{DynamicResource FgMutedBrush}" Margin="0,2,0,0">
+                                            <TextBlock Grid.Row="1" FontSize="11"
+                                                       Foreground="{DynamicResource FgSecondaryBrush}" Margin="0,2,0,0">
                                                 <TextBlock.Text>
                                                     <MultiBinding StringFormat="{}{0}  {1}">
                                                         <Binding Path="DurationText" Mode="OneWay"/>
@@ -273,6 +270,36 @@
                                         <TextBlock Text="转换设置" Foreground="{DynamicResource FgPrimaryBrush}"
                                                    FontSize="13" FontWeight="SemiBold" Margin="0,16,0,8"/>
 
+                                        <!-- 媒体类型切换 -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Button Content="🎬 视频" FontSize="12" Padding="12,4" Margin="0,0,4,0"
+                                                    Command="{Binding SwitchToVideoToolCommand}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource DarkButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsAudioToolMode}" Value="False">
+                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="🎵 音频" FontSize="12" Padding="12,4"
+                                                    Command="{Binding SwitchToAudioToolCommand}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource DarkButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsAudioToolMode}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </StackPanel>
+
                                         <!-- 输出格式 -->
                                         <Grid Margin="0,0,0,6">
                                             <Grid.ColumnDefinitions>
@@ -284,7 +311,7 @@
                                                        FontSize="12" VerticalAlignment="Center"/>
                                             <ComboBox Grid.Column="1"
                                                       Style="{StaticResource DarkComboBox}"
-                                                      ItemsSource="{Binding SettingsVm.OutputFormats}"
+                                                      ItemsSource="{Binding FilteredOutputFormats}"
                                                       SelectedItem="{Binding SettingsVm.SelectedFormat}"
                                                       FontSize="12"/>
                                         </Grid>
@@ -306,14 +333,26 @@
                                                       FontSize="12"/>
                                         </Grid>
 
-                                        <!-- 提取按钮 -->
-                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                            <Button Content="提取音频" Style="{StaticResource DarkButton}"
+                                        <!-- 操作按钮区（视频模式） -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                    Visibility="{Binding IsAudioToolMode, Converter={StaticResource BoolToVisibilityInverse}}">
+                                            <Button Content="▶ 开始转换" Style="{StaticResource AccentButton}"
+                                                    Command="{Binding StartConversionCommand}"
+                                                    Padding="12,5" Margin="0,0,8,0" FontSize="12"/>
+                                            <Button Content="提取音频流" Style="{StaticResource DarkButton}"
                                                     Command="{Binding ExtractAudioCommand}"
-                                                    Padding="10,4" Margin="0,0,8,0" FontSize="12"/>
-                                            <Button Content="提取视频" Style="{StaticResource DarkButton}"
+                                                    Padding="10,5" FontSize="12" ToolTip="从视频中提取音频"/>
+                                        </StackPanel>
+
+                                        <!-- 操作按钮区（音频模式） -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                    Visibility="{Binding IsAudioToolMode, Converter={StaticResource BoolToVisibility}}">
+                                            <Button Content="▶ 开始转换" Style="{StaticResource AccentButton}"
+                                                    Command="{Binding StartConversionCommand}"
+                                                    Padding="12,5" Margin="0,0,8,0" FontSize="12"/>
+                                            <Button Content="提取视频流" Style="{StaticResource DarkButton}"
                                                     Command="{Binding ExtractVideoCommand}"
-                                                    Padding="10,4" FontSize="12"/>
+                                                    Padding="10,5" FontSize="12" ToolTip="从视频中去除音频，仅保留视频"/>
                                         </StackPanel>
 
                                         <!-- 校验消息 -->
@@ -327,6 +366,18 @@
                                                 BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
                                                 Visibility="{Binding ProgressVm.ShowProgressPanel, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="正在处理..."
+                                                               Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Content="⏹ 停止"
+                                                            Style="{StaticResource DangerButton}"
+                                                            Command="{Binding StopConversionCommand}"
+                                                            Padding="8,3" FontSize="11"/>
+                                                </Grid>
                                                 <ProgressBar Style="{StaticResource DarkProgressBar}"
                                                              Minimum="0" Maximum="100"
                                                              Value="{Binding ProgressVm.ProgressPercentage, Mode=OneWay}"
@@ -401,14 +452,18 @@
                                             </Border>
 
                                             <!-- ===== 波形显示区域 ===== -->
-                                            <TextBlock Text="波形预览" Foreground="{DynamicResource FgPrimaryBrush}"
+                                            <TextBlock Text="波形预览（点击或拖动可定位进度）" Foreground="{DynamicResource FgPrimaryBrush}"
                                                        FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                            <Border Height="130"
+                                            <Border x:Name="WaveformBorder" Height="130"
                                                     Background="{DynamicResource BgDarkestBrush}"
                                                     BorderBrush="{DynamicResource BorderDefaultBrush}"
-                                                    BorderThickness="1" Margin="0,0,0,4" ClipToBounds="True">
-                                                <!-- 波形图 -->
-                                                <Grid>
+                                                    BorderThickness="1" Margin="0,0,0,4" ClipToBounds="True"
+                                                    Cursor="Hand"
+                                                    MouseLeftButtonDown="WaveformBorder_MouseLeftButtonDown"
+                                                    MouseMove="WaveformBorder_MouseMove"
+                                                    MouseLeftButtonUp="WaveformBorder_MouseLeftButtonUp">
+                                                <!-- 波形图叠加层 -->
+                                                <Grid x:Name="WaveformGrid">
                                                     <!-- 无波形时的提示 -->
                                                     <TextBlock Text="加载波形中..."
                                                                Foreground="{DynamicResource FgMutedBrush}"
@@ -428,36 +483,73 @@
                                                     <!-- 波形图像 -->
                                                     <Image Source="{Binding EditorVm.WaveformImage}"
                                                            Stretch="Fill" SnapsToDevicePixels="True"/>
+                                                    <!-- 裁剪选区高亮（蓝色半透明区域） -->
+                                                    <Border Opacity="0.25" Background="{DynamicResource AccentPrimaryBrush}"
+                                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                                        <Border.Margin>
+                                                            <MultiBinding Converter="{StaticResource TrimRegionMargin}">
+                                                                <Binding Path="EditorVm.TrimStartPercent" Mode="OneWay"/>
+                                                                <Binding Path="EditorVm.TrimEndPercent" Mode="OneWay"/>
+                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                                            </MultiBinding>
+                                                        </Border.Margin>
+                                                    </Border>
+                                                    <!-- 裁剪起始标记线（绿色） -->
+                                                    <Border Width="2" Background="#FF50C878"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                                        <Border.Margin>
+                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
+                                                                <Binding Path="EditorVm.TrimStartPercent" Mode="OneWay"/>
+                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                                            </MultiBinding>
+                                                        </Border.Margin>
+                                                    </Border>
+                                                    <!-- 裁剪结束标记线（红色） -->
+                                                    <Border Width="2" Background="#FFFF6060"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                                        <Border.Margin>
+                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
+                                                                <Binding Path="EditorVm.TrimEndPercent" Mode="OneWay"/>
+                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                                            </MultiBinding>
+                                                        </Border.Margin>
+                                                    </Border>
+                                                    <!-- 播放头竖线（蓝白色，粗1px） -->
+                                                    <Border Width="2" Background="White" Opacity="0.9"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                                        <Border.Margin>
+                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
+                                                                <Binding Path="EditorVm.PlaybackProgressPercent" Mode="OneWay"/>
+                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
+                                                            </MultiBinding>
+                                                        </Border.Margin>
+                                                    </Border>
                                                 </Grid>
                                             </Border>
 
-                                            <!-- 播放进度条（简单条） -->
-                                            <ProgressBar Minimum="0" Maximum="100"
-                                                         Value="{Binding EditorVm.PlaybackProgressPercent, Mode=OneWay, FallbackValue=0}"
-                                                         Height="4" Margin="0,0,0,2"
-                                                         Background="{DynamicResource BgHighlightBrush}"
-                                                         Foreground="{DynamicResource AccentPrimaryBrush}"
-                                                         BorderThickness="0"/>
-
-                                            <!-- 播放时间显示 -->
-                                            <TextBlock Text="{Binding EditorVm.CurrentTimeText}"
-                                                       Foreground="{DynamicResource FgMutedBrush}"
-                                                       FontFamily="Consolas, Courier New"
-                                                       FontSize="11" HorizontalAlignment="Center"
-                                                       Margin="0,0,0,8"/>
-
-                                            <!-- ===== 播放控制 ===== -->
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                                <Button Content="{Binding EditorVm.PlayPauseLabel}"
-                                                        Style="{StaticResource AccentButton}"
-                                                        Command="{Binding EditorVm.PlayPauseCommand}"
-                                                        Padding="14,5" Margin="0,0,6,0" FontSize="12"
-                                                        ToolTip="播放/暂停"/>
-                                                <Button Content="⏹ 停止"
-                                                        Style="{StaticResource DarkButton}"
-                                                        Command="{Binding EditorVm.StopCommand}"
-                                                        Padding="10,5" FontSize="12"/>
-                                            </StackPanel>
+                                            <!-- 播放控制行：时间 + 播放/停止 -->
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding EditorVm.CurrentTimeText}"
+                                                           Foreground="{DynamicResource FgSecondaryBrush}"
+                                                           FontFamily="Consolas, Courier New"
+                                                           FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                    <Button Content="{Binding EditorVm.PlayPauseLabel}"
+                                                            Style="{StaticResource AccentButton}"
+                                                            Command="{Binding EditorVm.PlayPauseCommand}"
+                                                            Padding="14,4" Margin="0,0,6,0" FontSize="12"
+                                                            ToolTip="播放/暂停（点击波形可定位）"/>
+                                                    <Button Content="⏹ 停止"
+                                                            Style="{StaticResource DarkButton}"
+                                                            Command="{Binding EditorVm.StopCommand}"
+                                                            Padding="10,4" FontSize="12"/>
+                                                </StackPanel>
+                                            </Grid>
 
                                             <!-- ===== 裁剪设置 ===== -->
                                             <Border Background="{DynamicResource BgMediumBrush}"
@@ -596,6 +688,9 @@
                                                                    Foreground="{DynamicResource FgMutedBrush}"
                                                                    FontSize="10" HorizontalAlignment="Right"/>
                                                     </Grid>
+                                                    <TextBlock Text="注：增益在导出时写入文件；播放预览仅支持音量降低（负值）"
+                                                               Foreground="{DynamicResource FgMutedBrush}"
+                                                               FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                                 </StackPanel>
                                             </Border>
 
@@ -626,6 +721,8 @@
                                                                         <ColumnDefinition Width="*"/>
                                                                         <ColumnDefinition Width="80"/>
                                                                         <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="Auto"/>
                                                                     </Grid.ColumnDefinitions>
                                                                     <TextBlock Grid.Column="0"
                                                                                Text="{Binding FileName}"
@@ -641,11 +738,28 @@
                                                                                HorizontalAlignment="Right"
                                                                                VerticalAlignment="Center"
                                                                                Margin="4,0"/>
-                                                                    <Button Grid.Column="2" Content="✕"
+                                                                    <!-- 上移按钮 -->
+                                                                    <Button Grid.Column="2" Content="↑"
+                                                                            Style="{StaticResource DarkButton}"
+                                                                            Command="{Binding DataContext.EditorVm.MoveSpliceUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Padding="4,2" Margin="2,0,0,0"
+                                                                            FontSize="10"
+                                                                            ToolTip="上移"/>
+                                                                    <!-- 下移按钮 -->
+                                                                    <Button Grid.Column="3" Content="↓"
+                                                                            Style="{StaticResource DarkButton}"
+                                                                            Command="{Binding DataContext.EditorVm.MoveSpliceDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Padding="4,2" Margin="2,0,0,0"
+                                                                            FontSize="10"
+                                                                            ToolTip="下移"/>
+                                                                    <!-- 删除按钮 -->
+                                                                    <Button Grid.Column="4" Content="✕"
                                                                             Style="{StaticResource DarkButton}"
                                                                             Command="{Binding DataContext.EditorVm.RemoveSpliceFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                             CommandParameter="{Binding}"
-                                                                            Padding="4,2" Margin="4,0,0,0"
+                                                                            Padding="4,2" Margin="2,0,0,0"
                                                                             FontSize="10"
                                                                             ToolTip="移除此项"/>
                                                                 </Grid>

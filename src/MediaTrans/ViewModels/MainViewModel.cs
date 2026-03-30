@@ -26,6 +26,13 @@ namespace MediaTrans.ViewModels
         private bool _isConverting;
         private bool _isLicensed;
         private bool _isEditorMode;
+        private bool _isAudioToolMode;
+
+        private static readonly List<string> _videoFormats =
+            new List<string> { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm" };
+        private static readonly List<string> _audioFormats =
+            new List<string> { ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a" };
+
 
         public MainViewModel()
         {
@@ -174,6 +181,53 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public RelayCommand SwitchToEditorCommand { get; private set; }
 
+        /// <summary>
+        /// 关于我们命令
+        /// </summary>
+        public RelayCommand OpenAboutCommand { get; private set; }
+
+        /// <summary>
+        /// 切换到视频工具模式
+        /// </summary>
+        public RelayCommand SwitchToVideoToolCommand { get; private set; }
+
+        /// <summary>
+        /// 切换到音频工具模式
+        /// </summary>
+        public RelayCommand SwitchToAudioToolCommand { get; private set; }
+
+        /// <summary>
+        /// 是否为音频工具模式（true=音频，false=视频）
+        /// </summary>
+        public bool IsAudioToolMode
+        {
+            get { return _isAudioToolMode; }
+            set
+            {
+                if (SetProperty(ref _isAudioToolMode, value, "IsAudioToolMode"))
+                {
+                    OnPropertyChanged("FilteredOutputFormats");
+                    // 自动切换到合适的默认格式
+                    if (value)
+                    {
+                        SettingsVm.SelectedFormat = ".mp3";
+                    }
+                    else
+                    {
+                        SettingsVm.SelectedFormat = ".mp4";
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 根据当前工具模式过滤后的输出格式列表
+        /// </summary>
+        public List<string> FilteredOutputFormats
+        {
+            get { return _isAudioToolMode ? _audioFormats : _videoFormats; }
+        }
+
         private void InitializeCommands()
         {
             ImportFilesCommand = new RelayCommand(OnImportFiles);
@@ -187,6 +241,9 @@ namespace MediaTrans.ViewModels
             ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
             SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
             SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
+            OpenAboutCommand = new RelayCommand(OnOpenAbout);
+            SwitchToVideoToolCommand = new RelayCommand(o => { IsAudioToolMode = false; });
+            SwitchToAudioToolCommand = new RelayCommand(o => { IsAudioToolMode = true; });
             _conversionService.ProgressChanged += OnConversionProgressChanged;
         }
 
@@ -237,6 +294,18 @@ namespace MediaTrans.ViewModels
             {
                 // 忽略许可证窗口打开失败
             }
+        }
+
+        /// <summary>
+        /// 打开关于我们对话框
+        /// </summary>
+        private void OnOpenAbout(object parameter)
+        {
+            MessageBox.Show(
+                "MediaTrans — 专业音视频处理工具\n\n技术支持:  QQ 841312998",
+                "关于我们",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
 
         /// <summary>
@@ -405,7 +474,17 @@ namespace MediaTrans.ViewModels
             {
                 var source = SelectedFile;
                 string targetFormat = SettingsVm.SelectedFormat ?? (source.HasVideo ? ".mp4" : ".mp3");
-                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+                string defaultOutputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                // 让用户选择保存路径
+                var saveDialog = new Microsoft.Win32.SaveFileDialog();
+                saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
+                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.DefaultExt = targetFormat;
+                saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
+                bool? saveResult = saveDialog.ShowDialog();
+                if (saveResult != true) return;
+                string outputPath = saveDialog.FileName;
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -493,7 +572,17 @@ namespace MediaTrans.ViewModels
             {
                 var source = SelectedFile;
                 string targetFormat = GetEffectiveAudioExtractFormat();
-                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+                string defaultOutputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                // 让用户选择保存路径
+                var saveDialog = new Microsoft.Win32.SaveFileDialog();
+                saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
+                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.DefaultExt = targetFormat;
+                saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
+                bool? saveResult = saveDialog.ShowDialog();
+                if (saveResult != true) return;
+                string outputPath = saveDialog.FileName;
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -564,7 +653,17 @@ namespace MediaTrans.ViewModels
             {
                 var source = SelectedFile;
                 string targetFormat = GetEffectiveVideoExtractFormat();
-                string outputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+                string defaultOutputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
+
+                // 让用户选择保存路径
+                var saveDialog = new Microsoft.Win32.SaveFileDialog();
+                saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
+                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.DefaultExt = targetFormat;
+                saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
+                bool? saveResult = saveDialog.ShowDialog();
+                if (saveResult != true) return;
+                string outputPath = saveDialog.FileName;
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -693,6 +792,7 @@ namespace MediaTrans.ViewModels
             return "未知错误";
         }
 
+        /// <summary>
         private void RaiseAllConversionCanExecuteChanged()
         {
             StartConversionCommand.RaiseCanExecuteChanged();
