@@ -106,7 +106,7 @@
                                 Padding="10,3" Margin="0,0,16,0" FontSize="12"/>
                         <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" 
                                    Margin="0,4" Background="{DynamicResource BorderDefaultBrush}"/>
-                        <Button Content="设置" Style="{StaticResource DarkButton}" 
+                        <Button Content="许可证" Style="{StaticResource DarkButton}" 
                                 Command="{Binding OpenLicenseCommand}"
                                 Padding="10,3" Margin="16,0,0,0" FontSize="12" ToolTip="许可证管理"/>
                     </StackPanel>
@@ -181,70 +181,227 @@
                     <Border Grid.Column="2" Background="{DynamicResource BgDarkestBrush}">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="36"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <!-- 预览区标题 -->
-                            <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}">
-                                <TextBlock Text="预览 / 编辑" Foreground="{DynamicResource FgSecondaryBrush}" 
-                                           FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
-                            </Border>
-                            <!-- 预览内容区 -->
-                            <Grid Grid.Row="1">
-                                <!-- 未选中文件时显示占位提示 -->
-                                <TextBlock Text="请导入音视频文件"
-                                           Foreground="{DynamicResource FgMutedBrush}" FontSize="14"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
 
-                                <!-- 选中文件后显示基础信息（即使元信息加载失败也能给出可见反馈） -->
-                                <Border Padding="16">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
+                            <!-- 模式选择标签栏 -->
+                            <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}"
+                                    BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                                    <Button Content="转换" Style="{StaticResource DarkButton}"
+                                            Command="{Binding SwitchToConvertCommand}"
+                                            Padding="14,3" Margin="0,0,4,0" FontSize="12"/>
+                                    <Button Content="编辑器" Style="{StaticResource DarkButton}"
+                                            Command="{Binding SwitchToEditorCommand}"
+                                            Padding="14,3" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 转换模式面板 -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding IsEditorMode, Converter={StaticResource BoolToVisibilityInverse}}">
+                                <StackPanel Margin="16">
+
+                                    <!-- 未选文件时的占位提示 -->
+                                    <TextBlock Text="请导入音视频文件"
+                                               Foreground="{DynamicResource FgMutedBrush}" FontSize="14"
+                                               HorizontalAlignment="Center" Margin="0,40,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- 文件信息与设置区（选中文件后可见） -->
                                     <StackPanel>
-                                        <TextBlock Text="文件详情" Foreground="{DynamicResource FgPrimaryBrush}" FontSize="14" FontWeight="SemiBold"/>
-                                        <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgSecondaryBrush}" TextTrimming="CharacterEllipsis">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedFile}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+
+                                        <!-- 文件信息 -->
+                                        <TextBlock Text="文件信息" Foreground="{DynamicResource FgPrimaryBrush}"
+                                                   FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <TextBlock Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12"
+                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis">
                                             <Run Text="名称："/>
                                             <Run Text="{Binding SelectedFile.FileName, Mode=OneWay}"/>
                                         </TextBlock>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                        <TextBlock Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12" Margin="0,2,0,0">
                                             <Run Text="时长："/>
                                             <Run Text="{Binding SelectedFile.DurationText, Mode=OneWay}"/>
                                         </TextBlock>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
-                                            <Run Text="大小："/>
-                                            <Run Text="{Binding SelectedFile.FileSizeText, Mode=OneWay}"/>
-                                        </TextBlock>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
+                                        <TextBlock Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12" Margin="0,2,0,0">
                                             <Run Text="格式："/>
                                             <Run Text="{Binding SelectedFile.Format, Mode=OneWay}"/>
                                         </TextBlock>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource FgSecondaryBrush}">
-                                            <Run Text="音频编码："/>
-                                            <Run Text="{Binding SelectedFile.AudioCodec, Mode=OneWay}"/>
-                                        </TextBlock>
-                                        <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
-                                                   Text="预览编辑器将在后续步骤中显示波形与时间线。"/>
+
+                                        <!-- 转换设置 -->
+                                        <TextBlock Text="转换设置" Foreground="{DynamicResource FgPrimaryBrush}"
+                                                   FontSize="13" FontWeight="SemiBold" Margin="0,16,0,8"/>
+
+                                        <!-- 输出格式 -->
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="输出格式："
+                                                       Foreground="{DynamicResource FgSecondaryBrush}"
+                                                       FontSize="12" VerticalAlignment="Center"/>
+                                            <ComboBox Grid.Column="1"
+                                                      ItemsSource="{Binding SettingsVm.OutputFormats}"
+                                                      SelectedItem="{Binding SettingsVm.SelectedFormat}"
+                                                      FontSize="12"/>
+                                        </Grid>
+
+                                        <!-- 预设 -->
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="预设："
+                                                       Foreground="{DynamicResource FgSecondaryBrush}"
+                                                       FontSize="12" VerticalAlignment="Center"/>
+                                            <ComboBox Grid.Column="1"
+                                                      ItemsSource="{Binding SettingsVm.Presets}"
+                                                      SelectedItem="{Binding SettingsVm.SelectedPreset}"
+                                                      DisplayMemberPath="Name"
+                                                      FontSize="12"/>
+                                        </Grid>
+
+                                        <!-- 提取按钮 -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <Button Content="提取音频" Style="{StaticResource DarkButton}"
+                                                    Command="{Binding ExtractAudioCommand}"
+                                                    Padding="10,4" Margin="0,0,8,0" FontSize="12"/>
+                                            <Button Content="提取视频" Style="{StaticResource DarkButton}"
+                                                    Command="{Binding ExtractVideoCommand}"
+                                                    Padding="10,4" FontSize="12"/>
+                                        </StackPanel>
+
+                                        <!-- 校验消息 -->
+                                        <TextBlock Text="{Binding SettingsVm.ValidationMessage}"
+                                                   Foreground="#FFE05050" FontSize="11" Margin="0,6,0,0"
+                                                   TextWrapping="Wrap"/>
+
+                                        <!-- 进度区（转换中时可见） -->
+                                        <Border Margin="0,14,0,0" Padding="12"
+                                                Background="{DynamicResource BgMediumBrush}"
+                                                BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
+                                                Visibility="{Binding ProgressVm.IsConverting, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel>
+                                                <ProgressBar Value="{Binding ProgressVm.ProgressPercentage, Mode=OneWay}"
+                                                             Minimum="0" Maximum="100" Height="8"/>
+                                                <Grid Margin="0,6,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding ProgressVm.ProgressText, Mode=OneWay}"
+                                                               Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding ProgressVm.RemainingTimeText, Mode=OneWay}"
+                                                               Foreground="{DynamicResource FgMutedBrush}" FontSize="11"/>
+                                                </Grid>
+                                                <TextBlock Text="日志" Foreground="{DynamicResource FgSecondaryBrush}"
+                                                           FontSize="11" Margin="0,8,0,4"/>
+                                                <ListBox ItemsSource="{Binding ProgressVm.LogEntries}"
+                                                         MaxHeight="80" FontSize="10"
+                                                         Background="{DynamicResource BgDarkBrush}"
+                                                         Foreground="{DynamicResource FgMutedBrush}"
+                                                         BorderThickness="0"
+                                                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
-                                </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- 编辑器模式面板 -->
+                            <Grid Grid.Row="1"
+                                  Visibility="{Binding IsEditorMode, Converter={StaticResource BoolToVisibility}}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="16">
+                                        <TextBlock Text="波形编辑器" Foreground="{DynamicResource FgPrimaryBrush}"
+                                                   FontSize="13" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                                        <!-- 波形画布占位 -->
+                                        <Border Height="120" Background="{DynamicResource BgMediumBrush}"
+                                                BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="1"
+                                                Margin="0,0,0,12">
+                                            <TextBlock Text="波形编辑器将在下一版本提供完整渲染"
+                                                       Foreground="{DynamicResource FgMutedBrush}" FontSize="12"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <!-- 播放控件占位 -->
+                                        <TextBlock Text="播放控件" Foreground="{DynamicResource FgSecondaryBrush}"
+                                                   FontSize="12" Margin="0,0,0,6"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                            <Button Content="▶ 播放" Style="{StaticResource DarkButton}"
+                                                    Padding="10,4" Margin="0,0,8,0" FontSize="12" IsEnabled="False"/>
+                                            <Button Content="⏹ 停止" Style="{StaticResource DarkButton}"
+                                                    Padding="10,4" FontSize="12" IsEnabled="False"/>
+                                        </StackPanel>
+
+                                        <!-- 选区信息 -->
+                                        <TextBlock Text="选区信息" Foreground="{DynamicResource FgSecondaryBrush}"
+                                                   FontSize="12" Margin="0,0,0,6"/>
+                                        <Grid Margin="0,0,0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="起点："
+                                                       Foreground="{DynamicResource FgMutedBrush}" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" Text="--:--"
+                                                       Foreground="{DynamicResource FgSecondaryBrush}" FontSize="11"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="终点："
+                                                       Foreground="{DynamicResource FgMutedBrush}" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" Text="--:--"
+                                                       Foreground="{DynamicResource FgSecondaryBrush}" FontSize="11"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="时长："
+                                                       Foreground="{DynamicResource FgMutedBrush}" FontSize="11"/>
+                                            <TextBlock Grid.Column="1" Text="--:--"
+                                                       Foreground="{DynamicResource FgSecondaryBrush}" FontSize="11"/>
+                                        </Grid>
+
+                                        <!-- 增益调节 -->
+                                        <TextBlock Text="增益调节" Foreground="{DynamicResource FgSecondaryBrush}"
+                                                   FontSize="12" Margin="0,0,0,6"/>
+                                        <Slider Minimum="-20" Maximum="20" Value="0"
+                                                TickFrequency="5" IsSnapToTickEnabled="True"
+                                                IsEnabled="False"/>
+                                    </StackPanel>
+                                </ScrollViewer>
                             </Grid>
                         </Grid>
                     </Border>
