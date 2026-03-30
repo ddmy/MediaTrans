@@ -323,8 +323,6 @@
 
     <!-- ===== Slider 样式 ===== -->
     <Style x:Key="DarkSlider" TargetType="Slider">
-        <Setter Property="Minimum" Value="0"/>
-        <Setter Property="Maximum" Value="100"/>
         <Setter Property="Height" Value="22"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -406,8 +404,11 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Border Background="{TemplateBinding Background}" CornerRadius="3">
-                        <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
-                                Background="{TemplateBinding Foreground}" CornerRadius="3"/>
+                        <Grid>
+                            <Border x:Name="PART_Track"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
+                                    Background="{TemplateBinding Foreground}" CornerRadius="3"/>
+                        </Grid>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>

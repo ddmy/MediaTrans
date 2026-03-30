@@ -125,7 +125,21 @@ namespace MediaTrans.ViewModels
         public double PlaybackProgress
         {
             get { return _playbackProgress; }
-            private set { SetProperty(ref _playbackProgress, value, "PlaybackProgress"); }
+            private set
+            {
+                if (SetProperty(ref _playbackProgress, value, "PlaybackProgress"))
+                {
+                    OnPropertyChanged("PlaybackProgressPercent");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 播放进度百分比（0～100），供 ProgressBar 绑定
+        /// </summary>
+        public double PlaybackProgressPercent
+        {
+            get { return _playbackProgress * 100.0; }
         }
 
         /// <summary>

@@ -328,8 +328,9 @@
                                                 Visibility="{Binding ProgressVm.ShowProgressPanel, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel>
                                                 <ProgressBar Style="{StaticResource DarkProgressBar}"
+                                                             Minimum="0" Maximum="100"
                                                              Value="{Binding ProgressVm.ProgressPercentage, Mode=OneWay}"
-                                                             Minimum="0" Maximum="100" Height="8"/>
+                                                             Height="8"/>
                                                 <Grid Margin="0,6,0,0">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
@@ -431,10 +432,12 @@
                                             </Border>
 
                                             <!-- 播放进度条（简单条） -->
-                                            <ProgressBar Style="{StaticResource DarkProgressBar}"
-                                                         Value="{Binding EditorVm.PlaybackProgress}"
-                                                         Minimum="0" Maximum="1"
-                                                         Height="4" Margin="0,0,0,2"/>
+                                            <ProgressBar Minimum="0" Maximum="100"
+                                                         Value="{Binding EditorVm.PlaybackProgressPercent, Mode=OneWay, FallbackValue=0}"
+                                                         Height="4" Margin="0,0,0,2"
+                                                         Background="{DynamicResource BgHighlightBrush}"
+                                                         Foreground="{DynamicResource AccentPrimaryBrush}"
+                                                         BorderThickness="0"/>
 
                                             <!-- 播放时间显示 -->
                                             <TextBlock Text="{Binding EditorVm.CurrentTimeText}"
