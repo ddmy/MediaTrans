@@ -61,10 +61,91 @@
             </Grid>
 
             <!-- 主内容区 -->
-            <Grid Grid.Row="1" Background="{DynamicResource BgDarkBrush}">
-                <TextBlock Text="MediaTrans 音视频处理工具" 
-                           Foreground="{DynamicResource FgMutedBrush}" FontSize="16"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <!-- 工具栏 -->
+                    <RowDefinition Height="36"/>
+                    <!-- 左侧文件列表 + 中央预览/编辑区 -->
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 顶部工具栏 -->
+                <Border Grid.Row="0" Background="{DynamicResource BgMediumBrush}"
+                        BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                        <Button Content="导入文件" Style="{StaticResource DarkButton}" 
+                                Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
+                        <Button Content="开始转换" Style="{StaticResource AccentButton}" 
+                                Padding="10,3" Margin="0,0,4,0" FontSize="12"/>
+                        <Button Content="停止" Style="{StaticResource DarkButton}" 
+                                Padding="10,3" Margin="0,0,16,0" FontSize="12"/>
+                        <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" 
+                                   Margin="0,4" Background="{DynamicResource BorderDefaultBrush}"/>
+                        <Button Content="设置" Style="{StaticResource DarkButton}" 
+                                Padding="10,3" Margin="16,0,0,0" FontSize="12"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 左侧文件列表 + 中央预览区 -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <!-- 左侧文件列表面板 -->
+                        <ColumnDefinition Width="260" MinWidth="180" MaxWidth="500"/>
+                        <!-- GridSplitter -->
+                        <ColumnDefinition Width="4"/>
+                        <!-- 中央预览/编辑区 -->
+                        <ColumnDefinition Width="*" MinWidth="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左侧文件列表面板 -->
+                    <Border Grid.Column="0" Background="{DynamicResource BgDarkBrush}"
+                            BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,1,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <!-- 面板标题 -->
+                            <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}">
+                                <TextBlock Text="文件列表" Foreground="{DynamicResource FgSecondaryBrush}" 
+                                           FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                            </Border>
+                            <!-- 文件列表区域 -->
+                            <ListBox Grid.Row="1" Style="{StaticResource DarkListBox}" 
+                                     BorderThickness="0"
+                                     Background="{DynamicResource BgDarkBrush}">
+                                <!-- 文件列表将在后续 Task 中绑定数据 -->
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- 可拖拽分隔条 -->
+                    <GridSplitter Grid.Column="1" Width="4" 
+                                  HorizontalAlignment="Stretch"
+                                  Background="{DynamicResource BgHighlightBrush}"
+                                  Cursor="SizeWE"/>
+
+                    <!-- 中央预览/编辑区 -->
+                    <Border Grid.Column="2" Background="{DynamicResource BgDarkestBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <!-- 预览区标题 -->
+                            <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}">
+                                <TextBlock Text="预览 / 编辑" Foreground="{DynamicResource FgSecondaryBrush}" 
+                                           FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                            </Border>
+                            <!-- 预览内容区 -->
+                            <Grid Grid.Row="1">
+                                <TextBlock Text="请导入音视频文件" 
+                                           Foreground="{DynamicResource FgMutedBrush}" FontSize="14"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
 
             <!-- 状态栏 -->
