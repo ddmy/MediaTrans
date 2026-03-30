@@ -36,3 +36,6 @@ tools/ConfuserEx/packages/
 
 # 混淆输出
 src/MediaTrans/bin/Confused/
+
+# 安装包输出
+dist/
