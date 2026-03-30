@@ -51,6 +51,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AudioPcmCacheServiceTests.cs" />
     <Compile Include="ConfigServiceTests.cs" />
     <Compile Include="ConversionServiceTests.cs" />
     <Compile Include="ConversionSettingsViewModelTests.cs" />
