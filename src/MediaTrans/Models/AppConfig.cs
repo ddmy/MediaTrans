@@ -89,6 +89,11 @@ namespace MediaTrans.Models
         public int MaxParallelTasks { get; set; }
 
         /// <summary>
+        /// 方向键移动播放头的步进像素数（缩放自适应）
+        /// </summary>
+        public int PlayheadStepPixels { get; set; }
+
+        /// <summary>
         /// 转换预设列表
         /// </summary>
         public List<ConversionPreset> ConversionPresets { get; set; }
@@ -116,6 +121,7 @@ namespace MediaTrans.Models
                 HardwareAccelerationEnabled = true,
                 PreferredHardwareEncoder = "auto",
                 MaxParallelTasks = 1,
+                PlayheadStepPixels = 10,
                 ConversionPresets = new List<ConversionPreset>()
             };
 

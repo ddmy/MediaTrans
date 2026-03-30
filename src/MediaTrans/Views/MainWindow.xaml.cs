@@ -2,18 +2,48 @@ using System;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using MediaTrans.Services;
 using MediaTrans.ViewModels;
 
 namespace MediaTrans.Views
 {
     /// <summary>
-    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮、文件拖放
+    /// 主窗口代码隐藏 — 无边框窗口拖拽、缩放、标题栏按钮、文件拖放、快捷键
     /// </summary>
     public partial class MainWindow : Window
     {
+        private ShortcutService _shortcutService;
+
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        /// <summary>
+        /// 设置快捷键服务（由外部注入以便测试）
+        /// </summary>
+        public void SetShortcutService(ShortcutService shortcutService)
+        {
+            _shortcutService = shortcutService;
+        }
+
+        /// <summary>
+        /// 全局键盘快捷键处理
+        /// </summary>
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            base.OnPreviewKeyDown(e);
+
+            // 如果焦点在文本输入框内，不拦截快捷键（允许正常编辑）
+            if (e.OriginalSource is System.Windows.Controls.TextBox)
+            {
+                return;
+            }
+
+            if (_shortcutService != null && _shortcutService.ProcessKeyDown(e.Key, Keyboard.Modifiers))
+            {
+                e.Handled = true;
+            }
         }
 
         /// <summary>

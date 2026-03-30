@@ -15,6 +15,7 @@
   "HardwareAccelerationEnabled": true,
   "PreferredHardwareEncoder": "auto",
   "MaxParallelTasks": 1,
+  "PlayheadStepPixels": 10,
   "ConversionPresets": [
     {
       "Name": "高质量 1080p",
