@@ -19,6 +19,7 @@ namespace MediaTrans.ViewModels
         private readonly MediaFileService _mediaFileService;
         private readonly ConfigService _configService;
         private readonly ConversionService _conversionService;
+        private readonly FFmpegService _ffmpegService;
         private MediaFileInfo _selectedFile;
         private CancellationTokenSource _importCts;
         private CancellationTokenSource _conversionCts;
@@ -32,7 +33,8 @@ namespace MediaTrans.ViewModels
             _statusText = "就绪";
             _configService = new ConfigService();
             _mediaFileService = new MediaFileService(_configService);
-            _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
+            _ffmpegService = new FFmpegService(_configService.Load());
+            _conversionService = new ConversionService(_ffmpegService, _configService);
             Files = new ObservableCollection<MediaFileInfo>();
             InitializeCommands();
 
@@ -49,7 +51,8 @@ namespace MediaTrans.ViewModels
             _statusText = "就绪";
             _mediaFileService = mediaFileService;
             _configService = new ConfigService();
-            _conversionService = new ConversionService(new FFmpegService(_configService.Load()), _configService);
+            _ffmpegService = new FFmpegService(_configService.Load());
+            _conversionService = new ConversionService(_ffmpegService, _configService);
             Files = new ObservableCollection<MediaFileInfo>();
             InitializeCommands();
             _isLicensed = false;
@@ -89,6 +92,11 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _selectedFile, value, "SelectedFile"))
                 {
                     RaiseAllConversionCanExecuteChanged();
+                    // 如果处于编辑器模式，自动加载文件到编辑器
+                    if (_isEditorMode && value != null && EditorVm != null)
+                    {
+                        EditorVm.LoadFile(value);
+                    }
                 }
             }
         }
@@ -142,6 +150,11 @@ namespace MediaTrans.ViewModels
         public ConversionProgressViewModel ProgressVm { get; private set; }
 
         /// <summary>
+        /// 编辑器 ViewModel
+        /// </summary>
+        public EditorViewModel EditorVm { get; private set; }
+
+        /// <summary>
         /// 提取音频命令
         /// </summary>
         public RelayCommand ExtractAudioCommand { get; private set; }
@@ -169,6 +182,7 @@ namespace MediaTrans.ViewModels
             StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
             SettingsVm = new ConversionSettingsViewModel(_configService);
             ProgressVm = new ConversionProgressViewModel();
+            EditorVm = new EditorViewModel(_ffmpegService, _configService);
             ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
             ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
             SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
@@ -618,6 +632,11 @@ namespace MediaTrans.ViewModels
         private void OnSwitchToEditor(object parameter)
         {
             IsEditorMode = true;
+            // 自动加载当前选中文件到编辑器
+            if (_selectedFile != null && EditorVm != null)
+            {
+                EditorVm.LoadFile(_selectedFile);
+            }
         }
 
         /// <summary>
