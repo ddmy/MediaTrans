@@ -98,6 +98,7 @@
     <Compile Include="Services\LogService.cs" />
     <Compile Include="Services\MediaFileService.cs" />
     <Compile Include="Services\VideoFrameCacheService.cs" />
+    <Compile Include="Services\SnappingService.cs" />
     <Compile Include="Services\WaveformRenderService.cs" />
     <Compile Include="Services\TimelineRulerService.cs" />
     <Compile Include="ViewModels\ViewModelBase.cs" />
