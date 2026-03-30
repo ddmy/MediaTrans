@@ -60,7 +60,7 @@ namespace MediaTrans.Tests
         [Fact]
         public void Clone_深拷贝()
         {
-            var clip = new TimelineClip(1);
+            var clip = new TimelineClip();
             clip.SourceFilePath = "test.mp4";
             clip.DisplayName = "测试";
             clip.SourceStartSeconds = 0;
