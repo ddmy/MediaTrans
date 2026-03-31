@@ -136,8 +136,20 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="文件列表" Foreground="{DynamicResource FgSecondaryBrush}" 
-                                               FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                                    <TextBlock Grid.Column="0"
+                                               Foreground="{DynamicResource FgSecondaryBrush}" 
+                                               FontSize="12" VerticalAlignment="Center" Margin="10,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="文件列表"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditorMode}" Value="True">
+                                                        <Setter Property="Text" Value="点击切换编辑文件"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <Button Grid.Column="1" Content="✕" ToolTip="移除选中文件"
                                             Style="{StaticResource WindowControlButton}"
                                             Command="{Binding RemoveFileCommand}"
@@ -817,9 +829,30 @@
 
             <!-- 状态栏 -->
             <Border Grid.Row="2" Background="{DynamicResource BgMediumBrush}">
-                <TextBlock Text="{Binding StatusText}" 
-                           Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
-                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding StatusText}" 
+                               Foreground="{DynamicResource FgMutedBrush}" FontSize="11"
+                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <!-- 导出进度条 -->
+                    <ProgressBar Grid.Column="1" Width="200" Height="14" Margin="6,0,10,0"
+                                 Minimum="0" Maximum="100"
+                                 Value="{Binding EditorVm.ExportProgress, Mode=OneWay}">
+                        <ProgressBar.Style>
+                            <Style TargetType="ProgressBar">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding EditorVm.IsExporting}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ProgressBar.Style>
+                    </ProgressBar>
+                </Grid>
             </Border>
 
             <!-- 缩放把手（8个方向） -->

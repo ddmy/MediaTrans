@@ -835,9 +835,30 @@ namespace MediaTrans.ViewModels
 
         private void OnClearFiles(object parameter)
         {
+            var result = MessageBox.Show(
+                "确定要清空文件列表吗？右侧操作区的所有内容缓存将被清除。",
+                "确认清空",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
             Files.Clear();
             SelectedFile = null;
+
+            // 重置编辑器缓存
+            if (EditorVm != null)
+            {
+                EditorVm.Reset();
+            }
+
+            // 重置转换进度
+            if (ProgressVm != null)
+            {
+                ProgressVm.Reset();
+            }
+
             ClearFilesCommand.RaiseCanExecuteChanged();
+            RaiseAllConversionCanExecuteChanged();
             StatusText = "文件列表已清空";
         }
 

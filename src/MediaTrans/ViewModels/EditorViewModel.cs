@@ -31,6 +31,7 @@ namespace MediaTrans.ViewModels
         private string _currentTimeText = "00:00:00.000";
         private BitmapSource _waveformImage;
         private double _playbackProgress;
+        private double _exportProgress;
         private string _selectedFormat = ".mp3";
         private CancellationTokenSource _exportCts;
         private System.Threading.Timer _playbackTimer;
@@ -198,6 +199,15 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 导出进度百分比（0-100），供绑定状态栏进度条
+        /// </summary>
+        public double ExportProgress
+        {
+            get { return _exportProgress; }
+            private set { SetProperty(ref _exportProgress, value, "ExportProgress"); }
+        }
+
+        /// <summary>
         /// 状态文本
         /// </summary>
         public string StatusText
@@ -360,6 +370,7 @@ namespace MediaTrans.ViewModels
             _editExportService = new EditExportService();
             _playbackService = new AudioPlaybackService();
             _playbackService.PlaybackStopped += OnPlaybackStopped;
+            _ffmpegService.ProgressChanged += OnExportProgressChanged;
             _spliceFiles = new ObservableCollection<SpliceEntry>();
             InitializeCommands();
         }
@@ -805,6 +816,7 @@ namespace MediaTrans.ViewModels
         {
             _exportCts = new CancellationTokenSource();
             IsExporting = true;
+            ExportProgress = 0;
             StatusText = "正在导出...";
 
             var token = _exportCts.Token;
@@ -820,6 +832,7 @@ namespace MediaTrans.ViewModels
                         string msg = (t.Exception != null && t.Exception.InnerException != null)
                             ? t.Exception.InnerException.Message
                             : "未知错误";
+                        ExportProgress = 0;
                         StatusText = string.Format("导出失败: {0}", msg);
                         return;
                     }
@@ -827,18 +840,42 @@ namespace MediaTrans.ViewModels
                     var result = t.Result;
                     if (result.Cancelled)
                     {
+                        ExportProgress = 0;
                         StatusText = "导出已取消";
                     }
                     else if (result.Success)
                     {
+                        ExportProgress = 100;
                         StatusText = string.Format("✅ 导出完成: {0}", outputPath);
+                        MessageBox.Show(
+                            string.Format("导出完成！\n\n保存位置: {0}", outputPath),
+                            "导出成功",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
                     }
                     else
                     {
+                        ExportProgress = 0;
                         StatusText = string.Format("导出失败: {0}", result.ErrorMessage);
                     }
                 }));
             });
+        }
+
+        /// <summary>
+        /// FFmpeg 进度回调，更新导出进度百分比
+        /// </summary>
+        private void OnExportProgressChanged(object sender, FFmpegProgressEventArgs e)
+        {
+            if (!_isExporting) return;
+            double pct = e.Percentage;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ExportProgress = pct;
+            }));
         }
 
         private void OnStopExport(object parameter)
@@ -1103,6 +1140,34 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 重置编辑器到初始状态，清空所有缓存
+        /// </summary>
+        public void Reset()
+        {
+            StopPlayback();
+            _audioReady = false;
+
+            CurrentFile = null;
+            WaveformImage = null;
+            _peakMin = null;
+            _peakMax = null;
+
+            TrimStartText = "00:00:00.000";
+            TrimEndText = "00:00:00.000";
+            CurrentTimeText = "00:00:00.000";
+            PlaybackProgress = 0;
+            ExportProgress = 0;
+            GainDb = 0;
+            IsExporting = false;
+            StatusText = "请在文件列表中选择文件";
+
+            _spliceFiles.Clear();
+
+            OnPropertyChanged("IsAudioReady");
+            RaiseCommandsCanExecuteChanged();
+        }
+
+        /// <summary>
         /// 释放资源
         /// </summary>
         public void Dispose()
@@ -1113,6 +1178,10 @@ namespace MediaTrans.ViewModels
             {
                 _playbackService.PlaybackStopped -= OnPlaybackStopped;
                 _playbackService.Dispose();
+            }
+            if (_ffmpegService != null)
+            {
+                _ffmpegService.ProgressChanged -= OnExportProgressChanged;
             }
             if (_exportCts != null)
             {
