@@ -21,6 +21,7 @@ namespace MediaTrans.ViewModels
         private readonly ConfigService _configService;
         private readonly ConversionService _conversionService;
         private readonly FFmpegService _ffmpegService;
+        private readonly PaywallService _paywallService;
         private MediaFileInfo _selectedFile;
         private CancellationTokenSource _importCts;
         private CancellationTokenSource _conversionCts;
@@ -43,12 +44,14 @@ namespace MediaTrans.ViewModels
             _configService = new ConfigService();
             _mediaFileService = new MediaFileService(_configService);
             _ffmpegService = new FFmpegService(_configService.Load());
-            _conversionService = new ConversionService(_ffmpegService, _configService);
+
+            // 初始化授权与付费墙
+            LicenseService licenseService = InitializeLicenseService();
+            _paywallService = new PaywallService(licenseService, _configService);
+
+            _conversionService = new ConversionService(_ffmpegService, _configService, _paywallService);
             Files = new ObservableCollection<MediaFileInfo>();
             InitializeCommands();
-
-            // 初始化授权状态
-            InitializeLicenseStatus();
         }
 
         /// <summary>
@@ -61,6 +64,7 @@ namespace MediaTrans.ViewModels
             _mediaFileService = mediaFileService;
             _configService = new ConfigService();
             _ffmpegService = new FFmpegService(_configService.Load());
+            _paywallService = null;
             _conversionService = new ConversionService(_ffmpegService, _configService);
             Files = new ObservableCollection<MediaFileInfo>();
             InitializeCommands();
@@ -251,7 +255,23 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public List<string> FilteredOutputFormats
         {
-            get { return _isAudioToolMode ? _audioFormats : _videoFormats; }
+            get
+            {
+                var source = _isAudioToolMode ? _audioFormats : _videoFormats;
+                if (_paywallService != null)
+                {
+                    var filtered = new List<string>();
+                    foreach (var fmt in source)
+                    {
+                        if (_paywallService.IsFormatAllowed(fmt))
+                        {
+                            filtered.Add(fmt);
+                        }
+                    }
+                    return filtered;
+                }
+                return source;
+            }
         }
 
         private void InitializeCommands()
@@ -264,7 +284,9 @@ namespace MediaTrans.ViewModels
             StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
             SettingsVm = new ConversionSettingsViewModel(_configService);
             ProgressVm = new ConversionProgressViewModel();
-            EditorVm = new EditorViewModel(_ffmpegService, _configService);
+            EditorVm = _paywallService != null
+                ? new EditorViewModel(_ffmpegService, _configService, _paywallService)
+                : new EditorViewModel(_ffmpegService, _configService);
             ExtractAudioCommand = new RelayCommand(OnExtractAudio, CanStartConversion);
             ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
             SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
@@ -277,9 +299,9 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
-        /// 初始化授权状态
+        /// 初始化授权服务并返回
         /// </summary>
-        private void InitializeLicenseStatus()
+        private LicenseService InitializeLicenseService()
         {
             try
             {
@@ -287,10 +309,14 @@ namespace MediaTrans.ViewModels
                 var licenseService = new LicenseService(machineCodeService);
                 licenseService.CheckOnStartup();
                 _isLicensed = licenseService.IsActivated;
+                return licenseService;
             }
             catch (Exception)
             {
                 _isLicensed = false;
+                // 返回一个未激活的 LicenseService
+                var mc = new MachineCodeService();
+                return new LicenseService(mc);
             }
         }
 
@@ -315,6 +341,8 @@ namespace MediaTrans.ViewModels
                 {
                     IsLicensed = true;
                     Title = "MediaTrans 专业版";
+                    // 刷新格式列表（解锁无损格式）
+                    OnPropertyChanged("FilteredOutputFormats");
                 };
 
                 window.ShowDialog();
@@ -503,6 +531,18 @@ namespace MediaTrans.ViewModels
             {
                 var source = SelectedFile;
                 string targetFormat = SettingsVm.SelectedFormat ?? (source.HasVideo ? ".mp4" : ".mp3");
+
+                // 付费墙格式检查
+                if (_paywallService != null && !_paywallService.IsFormatAllowed(targetFormat))
+                {
+                    DarkMessageBox.Show(
+                        string.Format("免费版不支持 {0} 格式导出。\n\n请升级到专业版以解锁无损格式（FLAC/WAV）。", targetFormat),
+                        "格式受限",
+                        MessageBoxButton.OK,
+                        DarkMessageBoxIcon.Warning);
+                    return;
+                }
+
                 string defaultOutputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
                 // 让用户选择保存路径
@@ -608,6 +648,18 @@ namespace MediaTrans.ViewModels
             {
                 var source = SelectedFile;
                 string targetFormat = GetEffectiveAudioExtractFormat();
+
+                // 付费墙格式检查
+                if (_paywallService != null && !_paywallService.IsFormatAllowed(targetFormat))
+                {
+                    DarkMessageBox.Show(
+                        string.Format("免费版不支持 {0} 格式导出。\n\n请升级到专业版以解锁无损格式（FLAC/WAV）。", targetFormat),
+                        "格式受限",
+                        MessageBoxButton.OK,
+                        DarkMessageBoxIcon.Warning);
+                    return;
+                }
+
                 string defaultOutputPath = _conversionService.GenerateOutputPath(source.FilePath, targetFormat);
 
                 // 让用户选择保存路径

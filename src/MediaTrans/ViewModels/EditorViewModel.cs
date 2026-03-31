@@ -41,6 +41,7 @@ namespace MediaTrans.ViewModels
         private readonly EditExportService _editExportService;
         private readonly AudioPlaybackService _playbackService;
         private readonly ConfigService _configService;
+        private readonly PaywallService _paywallService;
 
         // 波形峰值数据
         private float[] _peakMin;
@@ -319,11 +320,24 @@ namespace MediaTrans.ViewModels
         {
             get
             {
-                return new List<string>
+                var all = new List<string>
                 {
                     ".mp4", ".mkv", ".avi", ".mov", ".webm",
                     ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a"
                 };
+                if (_paywallService != null)
+                {
+                    var filtered = new List<string>();
+                    foreach (var fmt in all)
+                    {
+                        if (_paywallService.IsFormatAllowed(fmt))
+                        {
+                            filtered.Add(fmt);
+                        }
+                    }
+                    return filtered;
+                }
+                return all;
             }
         }
 
@@ -368,7 +382,24 @@ namespace MediaTrans.ViewModels
         {
             _ffmpegService = ffmpegService;
             _configService = configService;
+            _paywallService = null;
             _editExportService = new EditExportService();
+            _playbackService = new AudioPlaybackService();
+            _playbackService.PlaybackStopped += OnPlaybackStopped;
+            _ffmpegService.ProgressChanged += OnExportProgressChanged;
+            _spliceFiles = new ObservableCollection<SpliceEntry>();
+            InitializeCommands();
+        }
+
+        /// <summary>
+        /// 带付费墙服务的构造函数
+        /// </summary>
+        public EditorViewModel(FFmpegService ffmpegService, ConfigService configService, PaywallService paywallService)
+        {
+            _ffmpegService = ffmpegService;
+            _configService = configService;
+            _paywallService = paywallService;
+            _editExportService = new EditExportService(paywallService);
             _playbackService = new AudioPlaybackService();
             _playbackService.PlaybackStopped += OnPlaybackStopped;
             _ffmpegService.ProgressChanged += OnExportProgressChanged;

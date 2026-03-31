@@ -15,6 +15,7 @@ namespace MediaTrans.Services
         private readonly FFmpegService _ffmpegService;
         private readonly ConfigService _configService;
         private readonly HardwareAccelerationService _hwAccelService;
+        private readonly PaywallService _paywallService;
 
         /// <summary>
         /// 格式与默认编解码器映射表
@@ -48,6 +49,7 @@ namespace MediaTrans.Services
             _ffmpegService = ffmpegService;
             _configService = configService;
             _hwAccelService = null;
+            _paywallService = null;
         }
 
         /// <summary>
@@ -58,6 +60,18 @@ namespace MediaTrans.Services
             _ffmpegService = ffmpegService;
             _configService = configService;
             _hwAccelService = hwAccelService;
+            _paywallService = null;
+        }
+
+        /// <summary>
+        /// 创建带付费墙服务的转换服务
+        /// </summary>
+        public ConversionService(FFmpegService ffmpegService, ConfigService configService, PaywallService paywallService)
+        {
+            _ffmpegService = ffmpegService;
+            _configService = configService;
+            _hwAccelService = null;
+            _paywallService = paywallService;
         }
 
         /// <summary>
@@ -160,6 +174,12 @@ namespace MediaTrans.Services
                 {
                     builder.AudioCodec(mapping.AudioCodec);
                 }
+            }
+
+            // 付费墙限制（时长截断 + 视频水印）
+            if (_paywallService != null)
+            {
+                _paywallService.ApplyRestrictions(builder, source.DurationSeconds, !isAudioOnly);
             }
 
             // 自动多线程
@@ -369,6 +389,12 @@ namespace MediaTrans.Services
                 }
             }
 
+            // 付费墙限制（音频提取仅时长截断）
+            if (_paywallService != null)
+            {
+                _paywallService.ApplyRestrictions(builder, source.DurationSeconds, false);
+            }
+
             builder.Threads(0);
             builder.Overwrite(true);
             builder.Output(outputPath);
@@ -417,6 +443,12 @@ namespace MediaTrans.Services
                 {
                     throw new ArgumentException(string.Format("不支持的视频提取目标格式：{0}，无法确定视频编解码器", targetFormat));
                 }
+            }
+
+            // 付费墙限制（视频提取：时长截断 + 水印）
+            if (_paywallService != null)
+            {
+                _paywallService.ApplyRestrictions(builder, source.DurationSeconds, true);
             }
 
             builder.Threads(0);

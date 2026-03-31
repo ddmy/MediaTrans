@@ -79,6 +79,18 @@ namespace MediaTrans.Services
     /// </summary>
     public class EditExportService
     {
+        private readonly PaywallService _paywallService;
+
+        public EditExportService()
+        {
+            _paywallService = null;
+        }
+
+        public EditExportService(PaywallService paywallService)
+        {
+            _paywallService = paywallService;
+        }
+
         /// <summary>
         /// 校验导出参数合法性
         /// </summary>
@@ -186,10 +198,15 @@ namespace MediaTrans.Services
 
             builder.Input(exportParams.SourceFilePath);
 
-            // 持续时长
+            // 持续时长（付费墙截断）
             if (exportParams.TrimDurationSeconds.HasValue)
             {
-                builder.Duration(exportParams.TrimDurationSeconds.Value);
+                double effectiveDuration = exportParams.TrimDurationSeconds.Value;
+                if (_paywallService != null && _paywallService.NeedsTruncation(effectiveDuration))
+                {
+                    effectiveDuration = _paywallService.GetMaxExportSeconds();
+                }
+                builder.Duration(effectiveDuration);
             }
 
             // 编解码器
@@ -241,6 +258,12 @@ namespace MediaTrans.Services
                 double linear = GainService.DbToLinear(exportParams.GainDb);
                 builder.AudioFilter(string.Format(CultureInfo.InvariantCulture,
                     "volume={0:F6}", linear));
+            }
+
+            // 付费墙水印（仅视频）
+            if (_paywallService != null && _paywallService.ShouldAddWatermark(!isAudioOnly))
+            {
+                builder.VideoFilter(_paywallService.BuildWatermarkFilter());
             }
 
             builder.Threads(0);
@@ -323,30 +346,42 @@ namespace MediaTrans.Services
             }
             else
             {
-                // 视频+音频: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v_out][a_tmp]
+                // 视频+音频: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v_out][a_out]
                 for (int i = 0; i < segCount; i++)
                 {
                     filterParts.Append(string.Format("[{0}:v][{0}:a]", i));
                 }
                 filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
 
-                // 增益
-                if (Math.Abs(exportParams.GainDb) > 0.01)
+                bool hasGain = Math.Abs(exportParams.GainDb) > 0.01;
+                bool needWatermark = _paywallService != null && _paywallService.ShouldAddWatermark(true);
+
+                if (hasGain && needWatermark)
+                {
+                    double linear = GainService.DbToLinear(exportParams.GainDb);
+                    string wm = _paywallService.BuildWatermarkFilter();
+                    filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                        "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
+                }
+                else if (hasGain)
                 {
                     double linear = GainService.DbToLinear(exportParams.GainDb);
                     filterParts.Append(string.Format(CultureInfo.InvariantCulture,
                         "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
-                    builder.FilterComplex(filterParts.ToString());
-                    builder.Map("[v_out]");
-                    builder.Map("[a_out]");
+                }
+                else if (needWatermark)
+                {
+                    string wm = _paywallService.BuildWatermarkFilter();
+                    filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
                 }
                 else
                 {
                     filterParts.Append("[v_out][a_out]");
-                    builder.FilterComplex(filterParts.ToString());
-                    builder.Map("[v_out]");
-                    builder.Map("[a_out]");
                 }
+
+                builder.FilterComplex(filterParts.ToString());
+                builder.Map("[v_out]");
+                builder.Map("[a_out]");
 
                 string videoCodec = codecs.VideoCodec;
                 if (exportParams.Preset != null && !string.IsNullOrEmpty(exportParams.Preset.VideoCodec))
@@ -369,6 +404,20 @@ namespace MediaTrans.Services
                 if (!string.IsNullOrEmpty(exportParams.Preset.AudioBitrate))
                 {
                     builder.AudioBitrate(exportParams.Preset.AudioBitrate);
+                }
+            }
+
+            // 付费墙时长截断
+            if (_paywallService != null)
+            {
+                double totalDuration = 0;
+                foreach (var seg in exportParams.Segments)
+                {
+                    totalDuration += seg.DurationSeconds;
+                }
+                if (_paywallService.NeedsTruncation(totalDuration))
+                {
+                    builder.Duration(_paywallService.GetMaxExportSeconds());
                 }
             }
 
