@@ -19,6 +19,8 @@ namespace MediaTrans.ViewModels
         private bool _hasStarted;
         private readonly Stopwatch _stopwatch;
         private int _maxLogLines;
+        private string _statusHeaderText;
+        private string _stopButtonText;
 
         public ConversionProgressViewModel()
         {
@@ -27,6 +29,8 @@ namespace MediaTrans.ViewModels
             _progressText = "就绪";
             _remainingTimeText = "";
             _currentFileName = "";
+            _statusHeaderText = "就绪";
+            _stopButtonText = "⏹ 停止";
             LogEntries = new ObservableCollection<string>();
             ClearLogCommand = new RelayCommand(OnClearLog);
         }
@@ -95,6 +99,24 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 进度面板标题文本（正在处理/完成/失败）
+        /// </summary>
+        public string StatusHeaderText
+        {
+            get { return _statusHeaderText; }
+            set { SetProperty(ref _statusHeaderText, value, "StatusHeaderText"); }
+        }
+
+        /// <summary>
+        /// 停止按钮文本（转换中显示"停止"，完成后显示"关闭"）
+        /// </summary>
+        public string StopButtonText
+        {
+            get { return _stopButtonText; }
+            set { SetProperty(ref _stopButtonText, value, "StopButtonText"); }
+        }
+
+        /// <summary>
         /// 日志条目列表
         /// </summary>
         public ObservableCollection<string> LogEntries { get; private set; }
@@ -129,6 +151,8 @@ namespace MediaTrans.ViewModels
             ProgressPercentage = 0;
             ProgressText = "0%";
             RemainingTimeText = "计算中...";
+            StatusHeaderText = string.Format("正在处理: {0}", fileName);
+            StopButtonText = "⏹ 停止";
             AddLogEntry(string.Format("[{0}] 开始转换: {1}",
                 DateTime.Now.ToString("HH:mm:ss"), fileName));
         }
@@ -172,6 +196,8 @@ namespace MediaTrans.ViewModels
                 ProgressPercentage = 100;
                 ProgressText = "完成";
                 RemainingTimeText = string.Format("耗时 {0}", FormatTimeSpan(_stopwatch.Elapsed));
+                StatusHeaderText = "✅ 转换完成";
+                StopButtonText = "关闭";
                 AddLogEntry(string.Format("[{0}] 转换完成: {1} (耗时 {2})",
                     DateTime.Now.ToString("HH:mm:ss"), _currentFileName, FormatTimeSpan(_stopwatch.Elapsed)));
             }
@@ -179,6 +205,8 @@ namespace MediaTrans.ViewModels
             {
                 ProgressText = "失败";
                 RemainingTimeText = "";
+                StatusHeaderText = "❌ 转换失败";
+                StopButtonText = "关闭";
                 AddLogEntry(string.Format("[{0}] 转换失败: {1} - {2}",
                     DateTime.Now.ToString("HH:mm:ss"), _currentFileName, message));
             }
@@ -193,6 +221,8 @@ namespace MediaTrans.ViewModels
             IsConverting = false;
             ProgressText = "已取消";
             RemainingTimeText = "";
+            StatusHeaderText = "已取消";
+            StopButtonText = "关闭";
             AddLogEntry(string.Format("[{0}] 转换已取消: {1}",
                 DateTime.Now.ToString("HH:mm:ss"), _currentFileName));
         }
@@ -231,6 +261,8 @@ namespace MediaTrans.ViewModels
             ProgressText = "就绪";
             RemainingTimeText = "";
             CurrentFileName = "";
+            StatusHeaderText = "就绪";
+            StopButtonText = "⏹ 停止";
             LogEntries.Clear();
             OnPropertyChanged("ShowProgressPanel");
         }
