@@ -26,6 +26,8 @@ jobs:
 
       - name: 设置 MSBuild 环境
         uses: microsoft/setup-msbuild@v1
+        with:
+          vs-version: latest
 
       - name: 编译（Debug 配置）
         shell: cmd

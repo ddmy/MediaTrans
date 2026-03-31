@@ -36,7 +36,7 @@ jobs:
       - name: 设置 MSBuild 环境
         uses: microsoft/setup-msbuild@v1
         with:
-          msbuild-version: latest
+          vs-version: latest
 
       - name: 安装 Inno Setup
         run: |
