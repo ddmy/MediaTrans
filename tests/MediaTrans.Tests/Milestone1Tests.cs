@@ -525,7 +525,8 @@ namespace MediaTrans.Tests
         [Fact]
         public void ConfigService_保存后读取_数据完全一致()
         {
-            var configService = new ConfigService();
+            string tempPath = Path.Combine(_tempDir, "SaveLoad_AppConfig.json");
+            var configService = new ConfigService(tempPath);
             var config = AppConfig.CreateDefault();
 
             config.DefaultOutputDir = "C:\\测试 输出\\视频";
