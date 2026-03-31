@@ -6,6 +6,7 @@ using System.Windows;
 using MediaTrans.Commands;
 using MediaTrans.Models;
 using MediaTrans.Services;
+using MediaTrans.Views;
 
 namespace MediaTrans.ViewModels
 {
@@ -26,6 +27,7 @@ namespace MediaTrans.ViewModels
         private bool _isConverting;
         private bool _isLicensed;
         private bool _isEditorMode;
+        private bool _isSpliceMode;
         private bool _isAudioToolMode;
 
         private static readonly List<string> _videoFormats =
@@ -148,12 +150,21 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
-        /// 是否为编辑器模式
+        /// 是否为裁剪（编辑器）模式
         /// </summary>
         public bool IsEditorMode
         {
             get { return _isEditorMode; }
             set { SetProperty(ref _isEditorMode, value, "IsEditorMode"); }
+        }
+
+        /// <summary>
+        /// 是否为拼接模式
+        /// </summary>
+        public bool IsSpliceMode
+        {
+            get { return _isSpliceMode; }
+            set { SetProperty(ref _isSpliceMode, value, "IsSpliceMode"); }
         }
 
         /// <summary>
@@ -187,9 +198,14 @@ namespace MediaTrans.ViewModels
         public RelayCommand SwitchToConvertCommand { get; private set; }
 
         /// <summary>
-        /// 切换到编辑器模式命令
+        /// 切换到裁剪模式命令
         /// </summary>
         public RelayCommand SwitchToEditorCommand { get; private set; }
+
+        /// <summary>
+        /// 切换到拼接模式命令
+        /// </summary>
+        public RelayCommand SwitchToSpliceCommand { get; private set; }
 
         /// <summary>
         /// 关于我们命令
@@ -253,6 +269,7 @@ namespace MediaTrans.ViewModels
             ExtractVideoCommand = new RelayCommand(OnExtractVideo, CanStartConversion);
             SwitchToConvertCommand = new RelayCommand(OnSwitchToConvert);
             SwitchToEditorCommand = new RelayCommand(OnSwitchToEditor);
+            SwitchToSpliceCommand = new RelayCommand(OnSwitchToSplice);
             OpenAboutCommand = new RelayCommand(OnOpenAbout);
             SwitchToVideoToolCommand = new RelayCommand(o => { IsAudioToolMode = false; });
             SwitchToAudioToolCommand = new RelayCommand(o => { IsAudioToolMode = true; });
@@ -313,11 +330,11 @@ namespace MediaTrans.ViewModels
         /// </summary>
         private void OnOpenAbout(object parameter)
         {
-            MessageBox.Show(
+            DarkMessageBox.Show(
                 "MediaTrans — 专业音视频处理工具\n\n技术支持:  QQ 841312998",
                 "关于我们",
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                DarkMessageBoxIcon.Information);
         }
 
         /// <summary>
@@ -745,16 +762,24 @@ namespace MediaTrans.ViewModels
         private void OnSwitchToConvert(object parameter)
         {
             IsEditorMode = false;
+            IsSpliceMode = false;
         }
 
         private void OnSwitchToEditor(object parameter)
         {
             IsEditorMode = true;
+            IsSpliceMode = false;
             // 自动加载当前选中文件到编辑器
             if (_selectedFile != null && EditorVm != null)
             {
                 EditorVm.LoadFile(_selectedFile);
             }
+        }
+
+        private void OnSwitchToSplice(object parameter)
+        {
+            IsEditorMode = false;
+            IsSpliceMode = true;
         }
 
         /// <summary>
@@ -815,6 +840,11 @@ namespace MediaTrans.ViewModels
         {
             if (_selectedFile == null) return;
 
+            // 判断被移除的文件是否正在编辑器中
+            bool removingEditorFile = EditorVm != null
+                && EditorVm.CurrentFile != null
+                && string.Equals(EditorVm.CurrentFile.FilePath, _selectedFile.FilePath, StringComparison.OrdinalIgnoreCase);
+
             int index = Files.IndexOf(_selectedFile);
             Files.Remove(_selectedFile);
 
@@ -827,6 +857,28 @@ namespace MediaTrans.ViewModels
             else
             {
                 SelectedFile = null;
+                // 列表已空，重置编辑器和进度
+                if (EditorVm != null)
+                {
+                    EditorVm.Reset();
+                }
+                if (ProgressVm != null)
+                {
+                    ProgressVm.Reset();
+                }
+            }
+
+            // 如果移除的是编辑器正在编辑的文件且列表不空，需要重置编辑器
+            if (removingEditorFile && Files.Count > 0 && EditorVm != null)
+            {
+                if (_isEditorMode && _selectedFile != null)
+                {
+                    EditorVm.LoadFile(_selectedFile);
+                }
+                else
+                {
+                    EditorVm.Reset();
+                }
             }
 
             ClearFilesCommand.RaiseCanExecuteChanged();
@@ -835,11 +887,11 @@ namespace MediaTrans.ViewModels
 
         private void OnClearFiles(object parameter)
         {
-            var result = MessageBox.Show(
+            var result = DarkMessageBox.Show(
                 "确定要清空文件列表吗？右侧操作区的所有内容缓存将被清除。",
                 "确认清空",
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                DarkMessageBoxIcon.Question);
             if (result != MessageBoxResult.Yes) return;
 
             Files.Clear();

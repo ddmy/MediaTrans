@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using MediaTrans.Commands;
 using MediaTrans.Models;
 using MediaTrans.Services;
+using MediaTrans.Views;
 
 namespace MediaTrans.ViewModels
 {
@@ -847,11 +848,11 @@ namespace MediaTrans.ViewModels
                     {
                         ExportProgress = 100;
                         StatusText = string.Format("✅ 导出完成: {0}", outputPath);
-                        MessageBox.Show(
+                        DarkMessageBox.Show(
                             string.Format("导出完成！\n\n保存位置: {0}", outputPath),
                             "导出成功",
                             MessageBoxButton.OK,
-                            MessageBoxImage.Information);
+                            DarkMessageBoxIcon.Success);
                     }
                     else
                     {

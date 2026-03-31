@@ -11,7 +11,8 @@
         ResizeMode="NoResize"
         AllowDrop="True"
         Drop="Window_Drop"
-        DragOver="Window_DragOver">
+        DragOver="Window_DragOver"
+        Icon="/Assets/app.ico">
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
@@ -39,7 +40,7 @@
 
                 <!-- 应用图标和标题 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                    <TextBlock Text="🎬" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <Image Source="/Assets/app.ico" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,6,0" RenderOptions.BitmapScalingMode="HighQuality"/>
                     <TextBlock Text="{Binding Title}" Foreground="{DynamicResource FgSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
                 </StackPanel>
 
@@ -48,18 +49,24 @@
                     <!-- 最小化按钮 -->
                     <Button x:Name="BtnMinimize" Click="BtnMinimize_Click"
                             Style="{StaticResource WindowControlButton}"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE921;"
-                            ToolTip="最小化"/>
+                            ToolTip="最小化">
+                        <Path Data="M4,8 L12,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
                     <!-- 最大化/还原按钮 -->
                     <Button x:Name="BtnMaximize" Click="BtnMaximize_Click"
                             Style="{StaticResource WindowControlButton}"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE922;"
-                            ToolTip="最大化"/>
+                            ToolTip="最大化">
+                        <Path Data="M3,3 L13,3 L13,13 L3,13 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1" Fill="Transparent" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
                     <!-- 关闭按钮 -->
                     <Button x:Name="BtnClose" Click="BtnClose_Click"
                             Style="{StaticResource WindowCloseButton}"
-                            FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;"
-                            ToolTip="关闭"/>
+                            ToolTip="关闭">
+                        <Path Data="M4,4 L12,12 M12,4 L4,12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -144,7 +151,7 @@
                                                 <Setter Property="Text" Value="文件列表"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsEditorMode}" Value="True">
-                                                        <Setter Property="Text" Value="点击切换编辑文件"/>
+                                                        <Setter Property="Text" Value="点击切换裁剪文件"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -218,15 +225,19 @@
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource TabButton}">
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsEditorMode}" Value="False">
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsEditorMode}" Value="False"/>
+                                                            <Condition Binding="{Binding IsSpliceMode}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
                                                         <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
                                                         <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
-                                                    </DataTrigger>
+                                                    </MultiDataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
                                     </Button>
-                                    <Button Content="✂ 编辑器" FontSize="12"
+                                    <Button Content="✂ 裁剪" FontSize="12" Margin="0,0,2,0"
                                             Command="{Binding SwitchToEditorCommand}">
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource TabButton}">
@@ -239,12 +250,37 @@
                                             </Style>
                                         </Button.Style>
                                     </Button>
+                                    <Button Content="🔗 拼接" FontSize="12"
+                                            Command="{Binding SwitchToSpliceCommand}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource TabButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSpliceMode}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </StackPanel>
                             </Border>
 
                             <!-- 转换模式面板 -->
-                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
-                                          Visibility="{Binding IsEditorMode, Converter={StaticResource BoolToVisibilityInverse}}">
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ScrollViewer.Style>
+                                    <Style TargetType="ScrollViewer">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsEditorMode}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSpliceMode}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ScrollViewer.Style>
                                 <StackPanel Margin="16">
 
                                     <!-- 未选文件时的占位提示 -->
@@ -441,7 +477,7 @@
                                     <StackPanel Margin="12">
 
                                         <!-- 未选文件提示 -->
-                                        <TextBlock Text="请先在左侧文件列表中选择音视频文件，然后点击「✂ 编辑器」进行编辑"
+                                        <TextBlock Text="请先在左侧文件列表中选择音视频文件，然后进行裁剪"
                                                    Foreground="{DynamicResource FgMutedBrush}" FontSize="12"
                                                    TextWrapping="Wrap" HorizontalAlignment="Center" Margin="0,30,0,0">
                                             <TextBlock.Style>
@@ -730,98 +766,108 @@
                                                 </StackPanel>
                                             </Border>
 
-                                            <!-- ===== 拼接功能 ===== -->
-                                            <Border Background="{DynamicResource BgMediumBrush}"
-                                                    BorderBrush="{DynamicResource BorderDefaultBrush}"
-                                                    BorderThickness="1" CornerRadius="4"
-                                                    Padding="10,8" Margin="0,0,0,8">
-                                                <StackPanel>
-                                                    <TextBlock Text="🔗 多段拼接"
-                                                               Foreground="{DynamicResource FgPrimaryBrush}"
-                                                               FontSize="12" FontWeight="SemiBold"
-                                                               Margin="0,0,0,6"/>
-                                                    <TextBlock Text="将多个音视频文件按顺序拼接为一个文件"
-                                                               Foreground="{DynamicResource FgMutedBrush}"
-                                                               FontSize="11" Margin="0,0,0,8"/>
-
-                                                    <!-- 拼接文件列表 -->
-                                                    <ListBox Style="{StaticResource DarkListBox}"
-                                                             ItemsSource="{Binding EditorVm.SpliceFiles}"
-                                                             MaxHeight="120" BorderThickness="1"
-                                                             Margin="0,0,0,6"
-                                                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                                                        <ListBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Grid Margin="2,2">
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*"/>
-                                                                        <ColumnDefinition Width="80"/>
-                                                                        <ColumnDefinition Width="Auto"/>
-                                                                        <ColumnDefinition Width="Auto"/>
-                                                                        <ColumnDefinition Width="Auto"/>
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <TextBlock Grid.Column="0"
-                                                                               Text="{Binding FileName}"
-                                                                               Foreground="{DynamicResource FgPrimaryBrush}"
-                                                                               FontSize="12"
-                                                                               TextTrimming="CharacterEllipsis"
-                                                                               VerticalAlignment="Center"/>
-                                                                    <TextBlock Grid.Column="1"
-                                                                               Text="{Binding DurationText}"
-                                                                               Foreground="{DynamicResource FgMutedBrush}"
-                                                                               FontSize="11"
-                                                                               FontFamily="Consolas, Courier New"
-                                                                               HorizontalAlignment="Right"
-                                                                               VerticalAlignment="Center"
-                                                                               Margin="4,0"/>
-                                                                    <!-- 上移按钮 -->
-                                                                    <Button Grid.Column="2" Content="↑"
-                                                                            Style="{StaticResource DarkButton}"
-                                                                            Command="{Binding DataContext.EditorVm.MoveSpliceUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                            CommandParameter="{Binding}"
-                                                                            Padding="4,2" Margin="2,0,0,0"
-                                                                            FontSize="10"
-                                                                            ToolTip="上移"/>
-                                                                    <!-- 下移按钮 -->
-                                                                    <Button Grid.Column="3" Content="↓"
-                                                                            Style="{StaticResource DarkButton}"
-                                                                            Command="{Binding DataContext.EditorVm.MoveSpliceDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                            CommandParameter="{Binding}"
-                                                                            Padding="4,2" Margin="2,0,0,0"
-                                                                            FontSize="10"
-                                                                            ToolTip="下移"/>
-                                                                    <!-- 删除按钮 -->
-                                                                    <Button Grid.Column="4" Content="✕"
-                                                                            Style="{StaticResource DarkButton}"
-                                                                            Command="{Binding DataContext.EditorVm.RemoveSpliceFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                            CommandParameter="{Binding}"
-                                                                            Padding="4,2" Margin="2,0,0,0"
-                                                                            FontSize="10"
-                                                                            ToolTip="移除此项"/>
-                                                                </Grid>
-                                                            </DataTemplate>
-                                                        </ListBox.ItemTemplate>
-                                                    </ListBox>
-
-                                                    <!-- 按钮行 -->
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <Button Content="+ 添加文件"
-                                                                Style="{StaticResource DarkButton}"
-                                                                Command="{Binding EditorVm.AddSpliceFileCommand}"
-                                                                Padding="10,4" Margin="0,0,6,0" FontSize="12"/>
-                                                        <Button Content="🔗 拼接导出"
-                                                                Style="{StaticResource AccentButton}"
-                                                                Command="{Binding EditorVm.SpliceExportCommand}"
-                                                                Padding="10,4" FontSize="12"
-                                                                ToolTip="至少需要 2 个文件才能拼接"/>
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-
                                         </StackPanel>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Grid>
+
+                            <!-- 拼接模式面板 -->
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding IsSpliceMode, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Margin="16">
+                                    <TextBlock Text="🔗 多段拼接"
+                                               Foreground="{DynamicResource FgPrimaryBrush}"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Margin="0,0,0,4"/>
+                                    <TextBlock Text="将多个音视频文件按顺序拼接为一个文件"
+                                               Foreground="{DynamicResource FgMutedBrush}"
+                                               FontSize="12" Margin="0,0,0,12"/>
+
+                                    <!-- 拼接文件列表 -->
+                                    <Border Background="{DynamicResource BgMediumBrush}"
+                                            BorderBrush="{DynamicResource BorderDefaultBrush}"
+                                            BorderThickness="1" CornerRadius="4"
+                                            Padding="10,8" Margin="0,0,0,10">
+                                        <StackPanel>
+                                            <TextBlock Text="文件列表" Foreground="{DynamicResource FgPrimaryBrush}"
+                                                       FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                            <ListBox Style="{StaticResource DarkListBox}"
+                                                     ItemsSource="{Binding EditorVm.SpliceFiles}"
+                                                     MaxHeight="200" BorderThickness="1"
+                                                     Margin="0,0,0,8"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="2,2">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="80"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0"
+                                                                       Text="{Binding FileName}"
+                                                                       Foreground="{DynamicResource FgPrimaryBrush}"
+                                                                       FontSize="12"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding DurationText}"
+                                                                       Foreground="{DynamicResource FgMutedBrush}"
+                                                                       FontSize="11"
+                                                                       FontFamily="Consolas, Courier New"
+                                                                       HorizontalAlignment="Right"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="4,0"/>
+                                                            <Button Grid.Column="2" Content="↑"
+                                                                    Style="{StaticResource DarkButton}"
+                                                                    Command="{Binding DataContext.EditorVm.MoveSpliceUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Padding="4,2" Margin="2,0,0,0"
+                                                                    FontSize="10"
+                                                                    ToolTip="上移"/>
+                                                            <Button Grid.Column="3" Content="↓"
+                                                                    Style="{StaticResource DarkButton}"
+                                                                    Command="{Binding DataContext.EditorVm.MoveSpliceDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Padding="4,2" Margin="2,0,0,0"
+                                                                    FontSize="10"
+                                                                    ToolTip="下移"/>
+                                                            <Button Grid.Column="4" Content="✕"
+                                                                    Style="{StaticResource DarkButton}"
+                                                                    Command="{Binding DataContext.EditorVm.RemoveSpliceFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Padding="4,2" Margin="2,0,0,0"
+                                                                    FontSize="10"
+                                                                    ToolTip="移除此项"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+
+                                            <!-- 操作按钮 -->
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="+ 添加文件"
+                                                        Style="{StaticResource DarkButton}"
+                                                        Command="{Binding EditorVm.AddSpliceFileCommand}"
+                                                        Padding="10,4" Margin="0,0,6,0" FontSize="12"/>
+                                                <Button Content="🔗 拼接导出"
+                                                        Style="{StaticResource AccentButton}"
+                                                        Command="{Binding EditorVm.SpliceExportCommand}"
+                                                        Padding="10,4" FontSize="12"
+                                                        ToolTip="至少需要 2 个文件才能拼接"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 导出状态 -->
+                                    <TextBlock Text="{Binding EditorVm.StatusText}"
+                                               Foreground="{DynamicResource FgMutedBrush}"
+                                               FontSize="11" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </ScrollViewer>
+
                         </Grid>
                     </Border>
                 </Grid>

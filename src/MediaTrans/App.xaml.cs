@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using MediaTrans.Services;
+using MediaTrans.Views;
 
 namespace MediaTrans
 {
@@ -132,7 +133,7 @@ namespace MediaTrans
                 {
                     message = string.Format("{0}\n\n错误信息: {1}", message, e.Exception.Message);
                 }
-                MessageBox.Show(message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                DarkMessageBox.Show(message, "错误", MessageBoxButton.OK, DarkMessageBoxIcon.Error);
             }
             catch (Exception)
             {
