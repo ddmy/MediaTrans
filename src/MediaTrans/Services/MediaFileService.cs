@@ -128,23 +128,53 @@ namespace MediaTrans.Services
             }
 
             // 使用 ffprobe 获取 JSON 格式的元信息
-            var config = _configService.Load();
-            string ffprobePath = ResolveFfprobePath(config.FFprobePath);
-
-            // 构建 ffprobe 参数：输出 JSON 格式，包含流和格式信息
-            string arguments = string.Format(
-                "-v quiet -print_format json -show_format -show_streams \"{0}\"",
-                filePath);
-
-            string jsonOutput = RunFFprobe(ffprobePath, arguments, cancellationToken);
-
-            if (!string.IsNullOrEmpty(jsonOutput))
+            try
             {
-                ParseFFprobeJson(jsonOutput, info);
+                var config = _configService.Load();
+                string ffprobePath = ResolveFfprobePath(config.FFprobePath);
+
+                // 构建 ffprobe 参数：输出 JSON 格式，包含流和格式信息
+                string arguments = string.Format(
+                    "-v quiet -print_format json -show_format -show_streams \"{0}\"",
+                    filePath);
+
+                string jsonOutput = RunFFprobe(ffprobePath, arguments, cancellationToken);
+
+                if (!string.IsNullOrEmpty(jsonOutput))
+                {
+                    ParseFFprobeJson(jsonOutput, info);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                // ffprobe 未找到，基于文件扩展名推断基本属性
+                InferMediaTypeFromExtension(info);
             }
 
             info.MetadataLoaded = true;
             return info;
+        }
+
+        /// <summary>
+        /// 当 ffprobe 不可用时，根据文件扩展名推断基本媒体类型
+        /// </summary>
+        private static void InferMediaTypeFromExtension(MediaFileInfo info)
+        {
+            if (string.IsNullOrEmpty(info.FilePath)) return;
+            string ext = Path.GetExtension(info.FilePath);
+            if (string.IsNullOrEmpty(ext)) return;
+
+            if (_audioExtensions.Contains(ext))
+            {
+                info.HasAudio = true;
+                info.Format = ext.TrimStart('.').ToLowerInvariant();
+            }
+            else if (_videoExtensions.Contains(ext))
+            {
+                info.HasVideo = true;
+                info.HasAudio = true;
+                info.Format = ext.TrimStart('.').ToLowerInvariant();
+            }
         }
 
         /// <summary>
@@ -209,6 +239,27 @@ namespace MediaTrans.Services
                 if (File.Exists(fullPath))
                 {
                     return fullPath;
+                }
+            }
+
+            // 尝试在系统 PATH 中查找 ffprobe
+            string pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathEnv))
+            {
+                string[] pathDirs = pathEnv.Split(';');
+                for (int i = 0; i < pathDirs.Length; i++)
+                {
+                    string dir2 = pathDirs[i];
+                    if (string.IsNullOrWhiteSpace(dir2)) continue;
+                    try
+                    {
+                        string pathCandidate = Path.Combine(dir2.Trim(), "ffprobe.exe");
+                        if (File.Exists(pathCandidate))
+                        {
+                            return Path.GetFullPath(pathCandidate);
+                        }
+                    }
+                    catch { }
                 }
             }
 

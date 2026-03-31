@@ -59,8 +59,8 @@ namespace MediaTrans.Services
             {
                 throw new ArgumentNullException("config");
             }
-            _ffmpegPath = config.FFmpegPath;
-            _ffprobePath = config.FFprobePath;
+            _ffmpegPath = ResolveExecutablePath(config.FFmpegPath, "ffmpeg.exe");
+            _ffprobePath = ResolveExecutablePath(config.FFprobePath, "ffprobe.exe");
             _jobObject = new JobObject();
         }
 
@@ -72,6 +72,75 @@ namespace MediaTrans.Services
             _ffmpegPath = ffmpegPath;
             _ffprobePath = ffprobePath;
             _jobObject = new JobObject();
+        }
+
+        /// <summary>
+        /// 解析可执行文件路径：配置路径 → 应用目录 → 项目根回溯 → 系统 PATH
+        /// </summary>
+        private static string ResolveExecutablePath(string configuredPath, string exeName)
+        {
+            string rawPath = configuredPath;
+            if (string.IsNullOrWhiteSpace(rawPath))
+            {
+                rawPath = System.IO.Path.Combine("lib", "ffmpeg", exeName);
+            }
+
+            var candidates = new System.Collections.Generic.List<string>();
+            if (System.IO.Path.IsPathRooted(rawPath))
+            {
+                candidates.Add(rawPath);
+            }
+            else
+            {
+                candidates.Add(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, rawPath));
+                candidates.Add(System.IO.Path.Combine(Environment.CurrentDirectory, rawPath));
+
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                for (int i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
+                {
+                    candidates.Add(System.IO.Path.Combine(dir, "lib", "ffmpeg", exeName));
+                    try
+                    {
+                        dir = System.IO.Directory.GetParent(dir) != null
+                            ? System.IO.Directory.GetParent(dir).FullName : null;
+                    }
+                    catch { dir = null; }
+                }
+            }
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(candidates[i])) continue;
+                try
+                {
+                    string full = System.IO.Path.GetFullPath(candidates[i]);
+                    if (System.IO.File.Exists(full)) return full;
+                }
+                catch { }
+            }
+
+            // 在系统 PATH 中搜索
+            string pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathEnv))
+            {
+                string[] pathDirs = pathEnv.Split(';');
+                for (int i = 0; i < pathDirs.Length; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(pathDirs[i])) continue;
+                    try
+                    {
+                        string candidate = System.IO.Path.Combine(pathDirs[i].Trim(), exeName);
+                        if (System.IO.File.Exists(candidate))
+                        {
+                            return System.IO.Path.GetFullPath(candidate);
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // 返回原始配置路径，让后续调用时产生清晰的错误
+            return rawPath;
         }
 
         /// <summary>

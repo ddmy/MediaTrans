@@ -130,8 +130,23 @@
                             </Grid.RowDefinitions>
                             <!-- 面板标题 -->
                             <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}">
-                                <TextBlock Text="文件列表" Foreground="{DynamicResource FgSecondaryBrush}" 
-                                           FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="文件列表" Foreground="{DynamicResource FgSecondaryBrush}" 
+                                               FontSize="12" VerticalAlignment="Center" Margin="10,0"/>
+                                    <Button Grid.Column="1" Content="✕" ToolTip="移除选中文件"
+                                            Style="{StaticResource WindowControlButton}"
+                                            Command="{Binding RemoveFileCommand}"
+                                            FontSize="10" Padding="6,2" Margin="0,0,2,0"/>
+                                    <Button Grid.Column="2" Content="清空" ToolTip="清空文件列表"
+                                            Style="{StaticResource WindowControlButton}"
+                                            Command="{Binding ClearFilesCommand}"
+                                            FontSize="10" Padding="6,2" Margin="0,0,4,0"/>
+                                </Grid>
                             </Border>
                             <!-- 文件列表区域 -->
                             <ListBox Grid.Row="1" Style="{StaticResource DarkListBox}" 
@@ -458,10 +473,19 @@
                                                     Background="{DynamicResource BgDarkestBrush}"
                                                     BorderBrush="{DynamicResource BorderDefaultBrush}"
                                                     BorderThickness="1" Margin="0,0,0,4" ClipToBounds="True"
-                                                    Cursor="Hand"
                                                     MouseLeftButtonDown="WaveformBorder_MouseLeftButtonDown"
                                                     MouseMove="WaveformBorder_MouseMove"
                                                     MouseLeftButtonUp="WaveformBorder_MouseLeftButtonUp">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding EditorVm.IsAudioReady}" Value="False">
+                                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
                                                 <!-- 波形图叠加层 -->
                                                 <Grid x:Name="WaveformGrid">
                                                     <!-- 无波形时的提示 -->

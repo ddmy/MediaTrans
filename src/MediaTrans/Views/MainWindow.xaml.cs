@@ -197,7 +197,7 @@ namespace MediaTrans.Views
             if (ratio > 1) ratio = 1;
 
             var vm = DataContext as MainViewModel;
-            if (vm != null && vm.EditorVm != null)
+            if (vm != null && vm.EditorVm != null && vm.EditorVm.IsAudioReady)
             {
                 vm.EditorVm.SeekToRatio(ratio);
             }

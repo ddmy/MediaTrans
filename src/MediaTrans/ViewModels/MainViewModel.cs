@@ -114,6 +114,16 @@ namespace MediaTrans.ViewModels
         public RelayCommand ImportFilesCommand { get; private set; }
 
         /// <summary>
+        /// 移除选中文件命令
+        /// </summary>
+        public RelayCommand RemoveFileCommand { get; private set; }
+
+        /// <summary>
+        /// 清空文件列表命令
+        /// </summary>
+        public RelayCommand ClearFilesCommand { get; private set; }
+
+        /// <summary>
         /// 打开许可证管理命令
         /// </summary>
         public RelayCommand OpenLicenseCommand { get; private set; }
@@ -231,6 +241,8 @@ namespace MediaTrans.ViewModels
         private void InitializeCommands()
         {
             ImportFilesCommand = new RelayCommand(OnImportFiles);
+            RemoveFileCommand = new RelayCommand(OnRemoveFile, o => _selectedFile != null);
+            ClearFilesCommand = new RelayCommand(OnClearFiles, o => Files.Count > 0);
             OpenLicenseCommand = new RelayCommand(OnOpenLicense);
             StartConversionCommand = new RelayCommand(OnStartConversion, CanStartConversion);
             StopConversionCommand = new RelayCommand(OnStopConversion, CanStopConversion);
@@ -454,7 +466,7 @@ namespace MediaTrans.ViewModels
 
         private bool CanStopConversion(object parameter)
         {
-            return _isConverting;
+            return _isConverting || ProgressVm.ShowProgressPanel;
         }
 
         private void OnStartConversion(object parameter)
@@ -546,10 +558,17 @@ namespace MediaTrans.ViewModels
 
         private void OnStopConversion(object parameter)
         {
-            if (_conversionCts != null && !_conversionCts.IsCancellationRequested)
+            if (_isConverting && _conversionCts != null && !_conversionCts.IsCancellationRequested)
             {
                 _conversionCts.Cancel();
                 StatusText = "正在取消转换...";
+            }
+            else if (!_isConverting)
+            {
+                // 转换已结束（完成/失败/取消），清空进度面板
+                ProgressVm.Reset();
+                RaiseAllConversionCanExecuteChanged();
+                StatusText = "就绪";
             }
         }
 
@@ -792,6 +811,36 @@ namespace MediaTrans.ViewModels
             return "未知错误";
         }
 
+        private void OnRemoveFile(object parameter)
+        {
+            if (_selectedFile == null) return;
+
+            int index = Files.IndexOf(_selectedFile);
+            Files.Remove(_selectedFile);
+
+            // 自动选中相邻项
+            if (Files.Count > 0)
+            {
+                if (index >= Files.Count) index = Files.Count - 1;
+                SelectedFile = Files[index];
+            }
+            else
+            {
+                SelectedFile = null;
+            }
+
+            ClearFilesCommand.RaiseCanExecuteChanged();
+            StatusText = string.Format("就绪 - 共 {0} 个文件", Files.Count);
+        }
+
+        private void OnClearFiles(object parameter)
+        {
+            Files.Clear();
+            SelectedFile = null;
+            ClearFilesCommand.RaiseCanExecuteChanged();
+            StatusText = "文件列表已清空";
+        }
+
         /// <summary>
         private void RaiseAllConversionCanExecuteChanged()
         {
@@ -799,6 +848,7 @@ namespace MediaTrans.ViewModels
             StopConversionCommand.RaiseCanExecuteChanged();
             ExtractAudioCommand.RaiseCanExecuteChanged();
             ExtractVideoCommand.RaiseCanExecuteChanged();
+            RemoveFileCommand.RaiseCanExecuteChanged();
         }
     }
 }

@@ -220,6 +220,22 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 重置进度面板到初始状态，清空所有进度和日志
+        /// </summary>
+        public void Reset()
+        {
+            _stopwatch.Reset();
+            _hasStarted = false;
+            IsConverting = false;
+            ProgressPercentage = 0;
+            ProgressText = "就绪";
+            RemainingTimeText = "";
+            CurrentFileName = "";
+            LogEntries.Clear();
+            OnPropertyChanged("ShowProgressPanel");
+        }
+
+        /// <summary>
         /// 格式化时间跨度为易读字符串
         /// </summary>
         public static string FormatTimeSpan(TimeSpan ts)

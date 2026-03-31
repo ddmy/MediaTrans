@@ -26,6 +26,7 @@ namespace MediaTrans.ViewModels
         private bool _isLoaded;
         private bool _isPlaying;
         private bool _isExporting;
+        private bool _audioReady;
         private double _gainDb = 0.0;
         private string _currentTimeText = "00:00:00.000";
         private BitmapSource _waveformImage;
@@ -70,6 +71,14 @@ namespace MediaTrans.ViewModels
         public bool HasFile
         {
             get { return _currentFile != null; }
+        }
+
+        /// <summary>
+        /// 音频是否成功打开，可供播放和波形定位
+        /// </summary>
+        public bool IsAudioReady
+        {
+            get { return _audioReady; }
         }
 
         /// <summary>
@@ -411,17 +420,20 @@ namespace MediaTrans.ViewModels
             ThreadPool.QueueUserWorkItem(LoadWaveformAsync, file);
 
             // 尝试打开音频播放
+            _audioReady = false;
             if (file.HasAudio)
             {
                 try
                 {
                     _playbackService.Open(file.FilePath);
+                    _audioReady = true;
                 }
                 catch (Exception ex)
                 {
                     StatusText = string.Format("无法打开音频: {0}", ex.Message);
                 }
             }
+            OnPropertyChanged("IsAudioReady");
 
             RaiseCommandsCanExecuteChanged();
         }
@@ -602,7 +614,7 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public void SeekToRatio(double ratio)
         {
-            if (_currentFile == null || _playbackService == null) return;
+            if (_currentFile == null || _playbackService == null || !_audioReady) return;
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
 
@@ -618,12 +630,12 @@ namespace MediaTrans.ViewModels
 
         private bool CanPlayPause(object parameter)
         {
-            return _currentFile != null && _currentFile.HasAudio;
+            return _currentFile != null && _audioReady;
         }
 
         private bool CanStop(object parameter)
         {
-            return _isPlaying;
+            return _isPlaying || (_audioReady && _playbackService.State != PlaybackState.Stopped);
         }
 
         private void OnPlayPause(object parameter)
