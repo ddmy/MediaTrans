@@ -1,0 +1,167 @@
+name: Build Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      skip_test:
+        description: '跳过单元测试'
+        required: false
+        default: 'false'
+      skip_confuse:
+        description: '跳过代码混淆'
+        required: false
+        default: 'false'
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: 生产版本打包
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 MSBuild 环境
+        uses: microsoft/setup-msbuild@v1
+        with:
+          msbuild-version: latest
+
+      - name: 安装 Inno Setup
+        run: |
+          choco install innosetup -y
+          refreshenv
+
+      - name: 显示编译工具信息
+        run: |
+          msbuild -version
+          iscc.exe /? | head -5
+
+      - name: 获取版本号
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+            $version = "${{ github.ref }}".Substring(11)
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+            echo "is_release=true" >> $env:GITHUB_OUTPUT
+          } else {
+            $branch = "${{ github.ref }}".Substring(11)
+            $timestamp = Get-Date -Format "yyyyMMdd.HHmmss"
+            $commit = "${{ github.sha }}".Substring(0, 7)
+            $version = "dev.$timestamp.$commit"
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+            echo "is_release=false" >> $env:GITHUB_OUTPUT
+          }
+          echo "Build version: $([Environment]::GetEnvironmentVariable('version', 'User'))"
+
+      - name: 创建构建脚本参数
+        id: build_args
+        shell: pwsh
+        run: |
+          $args = @()
+          if ("${{ github.event.inputs.skip_test }}" -eq "true") {
+            $args += "--skip-test"
+          }
+          if ("${{ github.event.inputs.skip_confuse }}" -eq "true") {
+            $args += "--skip-confuse"
+          }
+          $script:BUILD_ARGS = $args -join " "
+          echo "BUILD_ARGS=$BUILD_ARGS" >> $env:GITHUB_OUTPUT
+          echo "Build args: $BUILD_ARGS"
+
+      - name: MSBuild 编译与打包
+        shell: cmd
+        run: |
+          call build.bat ${{ steps.build_args.outputs.BUILD_ARGS }}
+          if %ERRORLEVEL% NEQ 0 exit /b 1
+
+      - name: 验证输出文件
+        shell: pwsh
+        run: |
+          $installer = Get-Item "dist\MediaTrans_Setup_*.exe" -ErrorAction SilentlyContinue
+          if ($null -eq $installer) {
+            Write-Error "安装程序未找到"
+            exit 1
+          }
+          $size = [Math]::Round($installer.Length / 1MB, 2)
+          Write-Output "✓ 安装程序: $($installer.Name) ($size MB)"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v3
+        with:
+          name: MediaTrans-${{ steps.version.outputs.version }}
+          path: dist/MediaTrans_Setup_*.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 创建发布版本
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: MediaTrans ${{ steps.version.outputs.version }}
+          body: |
+            ## 📦 发布版本 ${{ steps.version.outputs.version }}
+
+            ### ✨ 更新内容
+            - 编译日志: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ### 📥 下载安装程序
+            - MediaTrans_Setup_${{ steps.version.outputs.version }}.exe
+
+            ### 🔒 系统要求
+            - Windows 7 SP1 或更高版本
+            - .NET Framework 4.5.2（安装程序内置）
+
+            ### 📝 安装说明
+            1. 下载安装程序
+            2. 运行 `MediaTrans_Setup_${{ steps.version.outputs.version }}.exe`
+            3. 按照向导完成安装
+            4. 启动应用程序
+
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'dev') }}
+
+      - name: 上传文件到发布版本
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/MediaTrans_Setup_*.exe
+          asset_name: MediaTrans_Setup_${{ steps.version.outputs.version }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: 生成构建摘要
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Output "## 📊 构建摘要" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **版本**: ${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **分支**: ${{ github.ref_name }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **提交**: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **运行器**: windows-latest" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          if ((Get-Item "dist\MediaTrans_Setup_*.exe" -ErrorAction SilentlyContinue) -ne $null) {
+            $installer = Get-Item "dist\MediaTrans_Setup_*.exe"
+            $size = [Math]::Round($installer.Length / 1MB, 2)
+            Write-Output "✅ 构建成功: $($installer.Name) ($size MB)" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            Write-Output "❌ 构建失败: 未生成安装程序" >> $env:GITHUB_STEP_SUMMARY
+          }

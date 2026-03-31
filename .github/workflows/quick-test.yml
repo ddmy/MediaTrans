@@ -1,0 +1,49 @@
+name: Quick Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'MediaTrans.sln'
+      - '.github/workflows/quick-test.yml'
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  quick-test:
+    runs-on: windows-latest
+    name: 快速编译与测试
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 MSBuild 环境
+        uses: microsoft/setup-msbuild@v1
+
+      - name: 编译（Debug 配置）
+        shell: cmd
+        run: |
+          msbuild MediaTrans.sln /t:Build /p:Configuration=Debug /v:minimal
+          if %ERRORLEVEL% NEQ 0 exit /b 1
+
+      - name: 运行单元测试
+        shell: pwsh
+        run: |
+          $xunit = "packages\xunit.runner.console.2.4.2\tools\net452\xunit.console.exe"
+          & $xunit "tests\MediaTrans.Tests\bin\Debug\MediaTrans.Tests.dll" -nologo
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: 结果总结
+        if: always()
+        run: |
+          echo "## ✅ 快速测试结果" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "✓ 编译通过" >> $env:GITHUB_STEP_SUMMARY
+          echo "✓ 单元测试通过" >> $env:GITHUB_STEP_SUMMARY

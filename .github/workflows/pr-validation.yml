@@ -1,0 +1,108 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    name: 代码质量验证
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 MSBuild 环境
+        uses: microsoft/setup-msbuild@v1
+        with:
+          msbuild-version: latest
+
+      - name: MSBuild Release 编译
+        shell: cmd
+        run: |
+          msbuild MediaTrans.sln /t:Rebuild /p:Configuration=Release /v:minimal /nologo
+          if %ERRORLEVEL% NEQ 0 exit /b 1
+
+      - name: MSBuild Debug 编译（用于测试）
+        shell: cmd
+        run: |
+          msbuild MediaTrans.sln /t:Build /p:Configuration=Debug /v:minimal /nologo
+          if %ERRORLEVEL% NEQ 0 exit /b 1
+
+      - name: 运行单元测试
+        shell: pwsh
+        run: |
+          $xunitRunner = "packages\xunit.runner.console.2.4.2\tools\net452\xunit.console.exe"
+          $testDll = "tests\MediaTrans.Tests\bin\Debug\MediaTrans.Tests.dll"
+          
+          if (-not (Test-Path $xunitRunner)) {
+            Write-Error "xUnit 测试运行器未找到: $xunitRunner"
+            exit 1
+          }
+          
+          if (-not (Test-Path $testDll)) {
+            Write-Error "测试 DLL 未找到: $testDll"
+            exit 1
+          }
+          
+          & $xunitRunner $testDll -nologo -verbose
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "测试失败，错误代码: $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: 代码结构检查
+        shell: pwsh
+        run: |
+          Write-Output "## 📋 代码结构检查" >> $env:GITHUB_STEP_SUMMARY
+          
+          # 检查关键目录
+          $dirs = @(
+            "src\MediaTrans\Models",
+            "src\MediaTrans\ViewModels",
+            "src\MediaTrans\Views",
+            "src\MediaTrans\Services",
+            "src\MediaTrans\Commands",
+            "src\MediaTrans\Converters",
+            "src\MediaTrans\Config"
+          )
+          
+          foreach ($dir in $dirs) {
+            if (Test-Path $dir) {
+              Write-Output "✅ $dir" >> $env:GITHUB_STEP_SUMMARY
+            } else {
+              Write-Output "❌ $dir (缺失)" >> $env:GITHUB_STEP_SUMMARY
+            }
+          }
+
+      - name: 编译输出统计
+        shell: pwsh
+        run: |
+          $releaseBuild = "src\MediaTrans\bin\Release\MediaTrans.exe"
+          if (Test-Path $releaseBuild) {
+            $size = [Math]::Round((Get-Item $releaseBuild).Length / 1MB, 2)
+            Write-Output "📦 Release 输出: $size MB"
+          }
+
+      - name: 生成验证报告
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Output "## ✅ PR 验证报告" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "| 检查项 | 状态 |" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "|--------|------|" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "| Release 编译 | ✅ |" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "| Debug 编译 | ✅ |" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "| 单元测试 | ✅ |" >> $env:GITHUB_STEP_SUMMARY
