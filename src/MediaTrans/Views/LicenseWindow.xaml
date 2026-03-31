@@ -94,6 +94,27 @@
                                 Padding="10,4" Margin="6,0,0,0" FontSize="12"/>
                     </Grid>
 
+                    <!-- 免费版限制说明（未激活时显示） -->
+                    <Border Visibility="{Binding IsActivated, Converter={StaticResource BoolToVisibilityInverse}}"
+                            Background="#30FFE050" BorderBrush="#60FFE050" BorderThickness="1"
+                            CornerRadius="4" Padding="12,10" Margin="0,0,0,15">
+                        <StackPanel>
+                            <TextBlock Text="⚠ 免费版限制" FontSize="13" FontWeight="Bold" Margin="0,0,0,6">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="#FFE0A050"/>
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                            <TextBlock Foreground="{DynamicResource FgSecondaryBrush}" FontSize="12" TextWrapping="Wrap" LineHeight="22">
+                                <Run Text="· 导出时长上限 60 秒（超出部分自动截断）"/><LineBreak/>
+                                <Run Text="· 视频导出自动添加水印"/><LineBreak/>
+                                <Run Text="· 不支持无损格式导出（FLAC / WAV）"/>
+                            </TextBlock>
+                            <TextBlock Text="激活专业版即可解除以上全部限制。" 
+                                       Foreground="{DynamicResource FgMutedBrush}" 
+                                       FontSize="11" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- 激活码输入区域（未激活时显示） -->
                     <StackPanel Visibility="{Binding IsActivated, Converter={StaticResource BoolToVisibilityInverse}}">
                         <TextBlock Text="输入激活码" Foreground="{DynamicResource FgSecondaryBrush}" 

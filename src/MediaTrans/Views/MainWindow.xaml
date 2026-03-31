@@ -89,7 +89,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="当前为免费版，部分功能受限。激活专业版解锁全部功能。" 
+                        <TextBlock Grid.Column="0" Text="免费版：导出≤60秒 | 视频含水印 | 禁用FLAC/WAV — 激活专业版解锁全部功能" 
                                    Foreground="White" FontSize="12" VerticalAlignment="Center" Margin="8,0"/>
                         <Button Grid.Column="1" Content="立即激活" 
                                 Style="{StaticResource DarkButton}"
