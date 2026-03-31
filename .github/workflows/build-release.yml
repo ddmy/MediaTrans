@@ -34,9 +34,13 @@ jobs:
           fetch-depth: 0
 
       - name: 设置 MSBuild 环境
-        uses: microsoft/setup-msbuild@v1
-        with:
-          vs-version: latest
+        uses: microsoft/setup-msbuild@v2
+
+      - name: 设置 NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: 还原 NuGet 包
+        run: nuget restore MediaTrans.sln
 
       - name: 安装 Inno Setup
         run: |
