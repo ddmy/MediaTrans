@@ -33,8 +33,10 @@
                 </StackPanel>
                 <Button Grid.Column="1" Click="BtnClose_Click"
                         Style="{StaticResource WindowCloseButton}"
-                        FontFamily="Segoe MDL2 Assets" Content="&#xE8BB;"
-                        ToolTip="关闭"/>
+                        ToolTip="关闭">
+                    <Path Data="M4,4 L12,12 M12,4 L4,12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Button>
             </Grid>
 
             <!-- 内容区 -->
