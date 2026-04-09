@@ -62,8 +62,9 @@ namespace LicenseIssuer
 
             if (string.IsNullOrEmpty(version))
             {
-                Console.Write("请输入授权版本号 (如 1.0): ");
-                version = Console.ReadLine();
+                Console.Write("请输入授权版本号 (直接回车默认 1.0): ");
+                string versionInput = Console.ReadLine();
+                version = string.IsNullOrWhiteSpace(versionInput) ? "1.0" : versionInput.Trim();
             }
 
             // 校验参数
@@ -98,12 +99,18 @@ namespace LicenseIssuer
                 Console.WriteLine("========================================");
                 Console.WriteLine(licenseCode);
                 Console.WriteLine("========================================");
+                Console.WriteLine();
+                Console.WriteLine("请复制以上激活码后按任意键退出...");
+                Console.ReadKey(true);
 
                 return 0;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(string.Format("错误: {0}", ex.Message));
+                Console.WriteLine();
+                Console.WriteLine("按任意键退出...");
+                Console.ReadKey(true);
                 return 1;
             }
         }
