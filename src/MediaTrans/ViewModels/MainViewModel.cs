@@ -22,6 +22,7 @@ namespace MediaTrans.ViewModels
         private readonly ConversionService _conversionService;
         private readonly FFmpegService _ffmpegService;
         private readonly PaywallService _paywallService;
+        private readonly LicenseService _licenseService;
         private MediaFileInfo _selectedFile;
         private CancellationTokenSource _importCts;
         private CancellationTokenSource _conversionCts;
@@ -46,8 +47,8 @@ namespace MediaTrans.ViewModels
             _ffmpegService = new FFmpegService(_configService.Load());
 
             // 初始化授权与付费墙
-            LicenseService licenseService = InitializeLicenseService();
-            _paywallService = new PaywallService(licenseService, _configService);
+            _licenseService = InitializeLicenseService();
+            _paywallService = new PaywallService(_licenseService, _configService);
 
             _conversionService = new ConversionService(_ffmpegService, _configService, _paywallService);
             Files = new ObservableCollection<MediaFileInfo>();
@@ -105,6 +106,11 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _selectedFile, value, "SelectedFile"))
                 {
                     RaiseAllConversionCanExecuteChanged();
+                    // 切换文件时重置进度面板（转换进行中则不重置）
+                    if (!_isConverting && ProgressVm != null)
+                    {
+                        ProgressVm.Reset();
+                    }
                     // 如果处于编辑器模式，自动加载文件到编辑器
                     if (_isEditorMode && value != null && EditorVm != null)
                     {
@@ -333,10 +339,8 @@ namespace MediaTrans.ViewModels
             try
             {
                 var machineCodeService = new MachineCodeService();
-                var licenseService = new LicenseService(machineCodeService);
-                licenseService.CheckOnStartup();
-
-                var vm = new LicenseViewModel(licenseService, machineCodeService);
+                // 复用同一个 licenseService，激活后 _paywallService 即时感知新状态
+                var vm = new LicenseViewModel(_licenseService, machineCodeService);
                 var window = new Views.LicenseWindow();
                 window.DataContext = vm;
                 window.Owner = Application.Current.MainWindow;
