@@ -816,12 +816,13 @@ namespace MediaTrans.ViewModels
             // 让用户选择保存路径
             var saveDialog = new Microsoft.Win32.SaveFileDialog();
             saveDialog.FileName = Path.GetFileName(defaultOutputPath);
-            saveDialog.InitialDirectory = Path.GetDirectoryName(defaultOutputPath);
+            saveDialog.InitialDirectory = GetSaveInitialDirectory(Path.GetDirectoryName(defaultOutputPath));
             saveDialog.DefaultExt = ext;
             saveDialog.Filter = MediaFileService.BuildSaveFilter(ext);
             bool? dialogResult = saveDialog.ShowDialog();
             if (dialogResult != true) return;
             string outputPath = saveDialog.FileName;
+            SaveLastOutputDirectory(outputPath);
 
             var exportParams = new EditExportParams
             {
@@ -1049,12 +1050,13 @@ namespace MediaTrans.ViewModels
             // 让用户选择保存路径
             var saveDialog = new Microsoft.Win32.SaveFileDialog();
             saveDialog.FileName = Path.GetFileName(defaultOutputPath);
-            saveDialog.InitialDirectory = Path.GetDirectoryName(defaultOutputPath);
+            saveDialog.InitialDirectory = GetSaveInitialDirectory(Path.GetDirectoryName(defaultOutputPath));
             saveDialog.DefaultExt = ext;
             saveDialog.Filter = MediaFileService.BuildSaveFilter(ext);
             bool? dialogResult = saveDialog.ShowDialog();
             if (dialogResult != true) return;
             string outputPath = saveDialog.FileName;
+            SaveLastOutputDirectory(outputPath);
 
             var segments = new List<ClipSegment>();
             double totalDur = 0;
@@ -1157,6 +1159,29 @@ namespace MediaTrans.ViewModels
             string name = Path.GetFileNameWithoutExtension(sourcePath);
             string outputName = name + suffix + ext;
             return Path.Combine(dir, outputName);
+        }
+
+        private string GetSaveInitialDirectory(string fallback)
+        {
+            var cfg = _configService != null ? _configService.CurrentConfig : null;
+            if (cfg != null && !string.IsNullOrEmpty(cfg.LastOutputDirectory)
+                && Directory.Exists(cfg.LastOutputDirectory))
+            {
+                return cfg.LastOutputDirectory;
+            }
+            return fallback;
+        }
+
+        private void SaveLastOutputDirectory(string filePath)
+        {
+            var cfg = _configService != null ? _configService.CurrentConfig : null;
+            if (cfg == null) return;
+            string dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                cfg.LastOutputDirectory = dir;
+                _configService.Save(cfg);
+            }
         }
 
         private void RaiseCommandsCanExecuteChanged()

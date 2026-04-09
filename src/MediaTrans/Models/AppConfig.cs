@@ -99,6 +99,11 @@ namespace MediaTrans.Models
         public List<ConversionPreset> ConversionPresets { get; set; }
 
         /// <summary>
+        /// 上次导出文件时选择的目录
+        /// </summary>
+        public string LastOutputDirectory { get; set; }
+
+        /// <summary>
         /// 创建默认配置
         /// </summary>
         public static AppConfig CreateDefault()
@@ -122,6 +127,7 @@ namespace MediaTrans.Models
                 PreferredHardwareEncoder = "auto",
                 MaxParallelTasks = 1,
                 PlayheadStepPixels = 10,
+                LastOutputDirectory = "",
                 ConversionPresets = new List<ConversionPreset>()
             };
 

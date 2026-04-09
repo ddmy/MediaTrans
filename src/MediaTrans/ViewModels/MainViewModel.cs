@@ -557,12 +557,13 @@ namespace MediaTrans.ViewModels
                 // 让用户选择保存路径
                 var saveDialog = new Microsoft.Win32.SaveFileDialog();
                 saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
-                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.InitialDirectory = GetSaveInitialDirectory(System.IO.Path.GetDirectoryName(defaultOutputPath));
                 saveDialog.DefaultExt = targetFormat;
                 saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
                 bool? saveResult = saveDialog.ShowDialog();
                 if (saveResult != true) return;
                 string outputPath = saveDialog.FileName;
+                SaveLastOutputDirectory(outputPath);
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -674,12 +675,13 @@ namespace MediaTrans.ViewModels
                 // 让用户选择保存路径
                 var saveDialog = new Microsoft.Win32.SaveFileDialog();
                 saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
-                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.InitialDirectory = GetSaveInitialDirectory(System.IO.Path.GetDirectoryName(defaultOutputPath));
                 saveDialog.DefaultExt = targetFormat;
                 saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
                 bool? saveResult = saveDialog.ShowDialog();
                 if (saveResult != true) return;
                 string outputPath = saveDialog.FileName;
+                SaveLastOutputDirectory(outputPath);
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -755,12 +757,13 @@ namespace MediaTrans.ViewModels
                 // 让用户选择保存路径
                 var saveDialog = new Microsoft.Win32.SaveFileDialog();
                 saveDialog.FileName = System.IO.Path.GetFileName(defaultOutputPath);
-                saveDialog.InitialDirectory = System.IO.Path.GetDirectoryName(defaultOutputPath);
+                saveDialog.InitialDirectory = GetSaveInitialDirectory(System.IO.Path.GetDirectoryName(defaultOutputPath));
                 saveDialog.DefaultExt = targetFormat;
                 saveDialog.Filter = MediaFileService.BuildSaveFilter(targetFormat);
                 bool? saveResult = saveDialog.ShowDialog();
                 if (saveResult != true) return;
                 string outputPath = saveDialog.FileName;
+                SaveLastOutputDirectory(outputPath);
 
                 ConversionPreset preset = GetPresetFromSettings();
 
@@ -855,6 +858,35 @@ namespace MediaTrans.ViewModels
                 return SettingsVm.BuildCurrentPreset();
             }
             return null;
+        }
+
+        /// <summary>
+        /// 获取保存对话框的初始目录：优先使用上次保存目录，否则回退到 fallback
+        /// </summary>
+        private string GetSaveInitialDirectory(string fallback)
+        {
+            var cfg = _configService != null ? _configService.CurrentConfig : null;
+            if (cfg != null && !string.IsNullOrEmpty(cfg.LastOutputDirectory)
+                && System.IO.Directory.Exists(cfg.LastOutputDirectory))
+            {
+                return cfg.LastOutputDirectory;
+            }
+            return fallback;
+        }
+
+        /// <summary>
+        /// 将所选文件路径所在目录记录为 LastOutputDirectory 并持久化
+        /// </summary>
+        private void SaveLastOutputDirectory(string filePath)
+        {
+            var cfg = _configService != null ? _configService.CurrentConfig : null;
+            if (cfg == null) return;
+            string dir = System.IO.Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                cfg.LastOutputDirectory = dir;
+                _configService.Save(cfg);
+            }
         }
 
         /// <summary>

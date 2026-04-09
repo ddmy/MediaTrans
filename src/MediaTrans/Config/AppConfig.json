@@ -16,6 +16,7 @@
   "PreferredHardwareEncoder": "auto",
   "MaxParallelTasks": 1,
   "PlayheadStepPixels": 10,
+  "LastOutputDirectory": "",
   "ConversionPresets": [
     {
       "Name": "高质量 1080p",
