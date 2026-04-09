@@ -26,6 +26,7 @@ namespace MediaTrans.ViewModels
         private string _customFrameRate;
         private string _validationMessage;
         private bool _isCustomMode;
+        private bool _isAudioMode;
 
         /// <summary>
         /// 可选的输出格式列表
@@ -33,9 +34,56 @@ namespace MediaTrans.ViewModels
         public ObservableCollection<string> OutputFormats { get; private set; }
 
         /// <summary>
-        /// 预设列表
+        /// 全部预设列表（所有模式）
         /// </summary>
         public ObservableCollection<ConversionPreset> Presets { get; private set; }
+
+        /// <summary>
+        /// 按当前工具模式过滤后的预设列表：
+        /// 音频模式 → 只显示无 VideoCodec 的音频预设；
+        /// 视频模式 → 只显示有 VideoCodec 的视频预设。
+        /// </summary>
+        public List<ConversionPreset> FilteredPresets
+        {
+            get
+            {
+                var result = new List<ConversionPreset>();
+                foreach (var p in Presets)
+                {
+                    bool isAudioPreset = string.IsNullOrEmpty(p.VideoCodec);
+                    if (_isAudioMode == isAudioPreset)
+                    {
+                        result.Add(p);
+                    }
+                }
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 当前是否处于音频工具模式（true=音频，false=视频）
+        /// 由 MainViewModel 在切换模式时设置，用于过滤预设列表。
+        /// </summary>
+        public bool IsAudioMode
+        {
+            get { return _isAudioMode; }
+            set
+            {
+                if (SetProperty(ref _isAudioMode, value, "IsAudioMode"))
+                {
+                    // 切换模式时清除与新模式不匹配的预设选择
+                    if (_selectedPreset != null)
+                    {
+                        bool presetIsAudio = string.IsNullOrEmpty(_selectedPreset.VideoCodec);
+                        if (presetIsAudio != value)
+                        {
+                            SelectedPreset = null;
+                        }
+                    }
+                    OnPropertyChanged("FilteredPresets");
+                }
+            }
+        }
 
         /// <summary>
         /// 保存自定义预设命令
@@ -233,6 +281,7 @@ namespace MediaTrans.ViewModels
                     Presets.Add(preset);
                 }
             }
+            OnPropertyChanged("FilteredPresets");
         }
 
         /// <summary>

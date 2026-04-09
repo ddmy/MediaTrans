@@ -143,7 +143,9 @@ namespace MediaTrans.Services
 
                 if (!string.IsNullOrEmpty(preset.AudioCodec))
                 {
-                    builder.AudioCodec(preset.AudioCodec);
+                    // 若预设 codec 与目标容器不兼容，自动回退到格式默认 codec
+                    string resolvedAudio = ResolveAudioCodec(preset.AudioCodec, targetFormat);
+                    builder.AudioCodec(resolvedAudio);
                 }
                 if (!string.IsNullOrEmpty(preset.AudioBitrate))
                 {
@@ -201,6 +203,69 @@ namespace MediaTrans.Services
                 return _hwAccelService.ResolveVideoCodec(softwareCodec);
             }
             return softwareCodec;
+        }
+
+        /// <summary>
+        /// 检查音频编解码器是否兼容目标容器格式。
+        /// 若不兼容，应回退到该格式的默认编解码器，避免 FFmpeg 报错。
+        /// </summary>
+        public static bool IsAudioCodecCompatibleWithFormat(string audioCodec, string formatExtension)
+        {
+            if (string.IsNullOrEmpty(audioCodec) || string.IsNullOrEmpty(formatExtension))
+            {
+                return true;
+            }
+            string ext = formatExtension.ToLowerInvariant();
+            string codec = audioCodec.ToLowerInvariant();
+
+            // MP3 容器只接受 libmp3lame/mp3
+            if (ext == ".mp3")
+            {
+                return codec == "libmp3lame" || codec == "mp3";
+            }
+            // WAV 只接受 PCM 系列
+            if (ext == ".wav")
+            {
+                return codec.StartsWith("pcm_");
+            }
+            // FLAC 只接受 flac
+            if (ext == ".flac")
+            {
+                return codec == "flac";
+            }
+            // OGG 只接受 libvorbis/libopus
+            if (ext == ".ogg")
+            {
+                return codec == "libvorbis" || codec == "libopus";
+            }
+            // WMA 只接受 wmav2
+            if (ext == ".wma")
+            {
+                return codec.Contains("wmav");
+            }
+            // 其他容器（mp4/mkv/mov/m4a/aac 等）对 aac/libmp3lame 等均兼容，宽松处理
+            return true;
+        }
+
+        /// <summary>
+        /// 按需解析实际要使用的音频编解码器：
+        /// 若预设 codec 与目标格式不兼容，回退到格式默认 codec。
+        /// </summary>
+        private static string ResolveAudioCodec(string presetAudioCodec, string targetFormat)
+        {
+            if (string.IsNullOrEmpty(presetAudioCodec))
+            {
+                return presetAudioCodec;
+            }
+            if (!IsAudioCodecCompatibleWithFormat(presetAudioCodec, targetFormat))
+            {
+                var mapping = GetDefaultCodecs(targetFormat);
+                if (mapping != null && !string.IsNullOrEmpty(mapping.AudioCodec))
+                {
+                    return mapping.AudioCodec;
+                }
+            }
+            return presetAudioCodec;
         }
 
         /// <summary>
@@ -369,7 +434,9 @@ namespace MediaTrans.Services
 
             if (preset != null && !string.IsNullOrEmpty(preset.AudioCodec))
             {
-                builder.AudioCodec(preset.AudioCodec);
+                // 若预设 codec 与目标容器不兼容，自动回退到格式默认 codec
+                string resolvedAudio = ResolveAudioCodec(preset.AudioCodec, targetFormat);
+                builder.AudioCodec(resolvedAudio);
                 if (!string.IsNullOrEmpty(preset.AudioBitrate))
                 {
                     builder.AudioBitrate(preset.AudioBitrate);

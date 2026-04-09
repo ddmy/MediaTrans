@@ -390,7 +390,7 @@
                                                        FontSize="12" VerticalAlignment="Center"/>
                                             <ComboBox Grid.Column="1"
                                                       Style="{StaticResource DarkComboBox}"
-                                                      ItemsSource="{Binding SettingsVm.Presets}"
+                                                      ItemsSource="{Binding SettingsVm.FilteredPresets}"
                                                       SelectedItem="{Binding SettingsVm.SelectedPreset}"
                                                       DisplayMemberPath="Name"
                                                       FontSize="12"/>

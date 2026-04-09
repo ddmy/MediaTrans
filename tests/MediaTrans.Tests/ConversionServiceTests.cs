@@ -363,5 +363,119 @@ namespace MediaTrans.Tests
         }
 
         #endregion
+
+        #region IsAudioCodecCompatibleWithFormat 测试
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_AacToMp4_ReturnsTrue()
+        {
+            Assert.True(ConversionService.IsAudioCodecCompatibleWithFormat("aac", ".mp4"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_AacToMp3_ReturnsFalse()
+        {
+            Assert.False(ConversionService.IsAudioCodecCompatibleWithFormat("aac", ".mp3"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_Mp3LameToMp3_ReturnsTrue()
+        {
+            Assert.True(ConversionService.IsAudioCodecCompatibleWithFormat("libmp3lame", ".mp3"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_AacToWav_ReturnsFalse()
+        {
+            Assert.False(ConversionService.IsAudioCodecCompatibleWithFormat("aac", ".wav"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_PcmToWav_ReturnsTrue()
+        {
+            Assert.True(ConversionService.IsAudioCodecCompatibleWithFormat("pcm_s16le", ".wav"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_AacToFlac_ReturnsFalse()
+        {
+            Assert.False(ConversionService.IsAudioCodecCompatibleWithFormat("aac", ".flac"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_FlacToFlac_ReturnsTrue()
+        {
+            Assert.True(ConversionService.IsAudioCodecCompatibleWithFormat("flac", ".flac"));
+        }
+
+        [Fact]
+        public void IsAudioCodecCompatibleWithFormat_EmptyCodec_ReturnsTrue()
+        {
+            Assert.True(ConversionService.IsAudioCodecCompatibleWithFormat("", ".mp3"));
+        }
+
+        #endregion
+
+        #region 预设 AudioCodec 与格式不兼容时回退行为测试
+
+        [Fact]
+        public void BuildConversionArguments_AacPresetToMp3_FallsBackToLibmp3lame()
+        {
+            // "高质量音频"预设 AudioCodec=aac，但目标格式是 mp3（MP3 容器只接受 libmp3lame）
+            // 期望自动回退到 libmp3lame，而非直接使用 aac
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+            var preset = new ConversionPreset
+            {
+                Name = "高质量音频",
+                VideoCodec = "",
+                AudioCodec = "aac",
+                AudioBitrate = "320k"
+            };
+
+            string args = service.BuildConversionArguments(source, @"C:\test\output.mp3", ".mp3", preset);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a libmp3lame", args);
+            Assert.DoesNotContain("-c:a aac", args);
+        }
+
+        [Fact]
+        public void BuildExtractAudioArguments_AacPresetToMp3_FallsBackToLibmp3lame()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+            var preset = new ConversionPreset
+            {
+                AudioCodec = "aac",
+                AudioBitrate = "320k"
+            };
+
+            string args = service.BuildExtractAudioArguments(source, @"C:\test\output.mp3", ".mp3", preset);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a libmp3lame", args);
+            Assert.DoesNotContain("-c:a aac", args);
+        }
+
+        [Fact]
+        public void BuildConversionArguments_AacPresetToWav_FallsBackToPcm()
+        {
+            var service = CreateService();
+            var source = new MediaFileInfo { FilePath = @"C:\test\input.mp4", FileName = "input.mp4" };
+            var preset = new ConversionPreset
+            {
+                AudioCodec = "aac",
+                AudioBitrate = "320k"
+            };
+
+            string args = service.BuildConversionArguments(source, @"C:\test\output.wav", ".wav", preset);
+
+            Assert.Contains("-vn", args);
+            Assert.Contains("-c:a pcm_s16le", args);
+            Assert.DoesNotContain("-c:a aac", args);
+        }
+
+        #endregion
     }
 }

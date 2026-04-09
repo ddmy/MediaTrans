@@ -237,6 +237,11 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _isAudioToolMode, value, "IsAudioToolMode"))
                 {
                     OnPropertyChanged("FilteredOutputFormats");
+                    // 同步更新设置面板的模式，以刷新预设过滤列表
+                    if (SettingsVm != null)
+                    {
+                        SettingsVm.IsAudioMode = value;
+                    }
                     // 自动切换到合适的默认格式
                     if (value)
                     {
