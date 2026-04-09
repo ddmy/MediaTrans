@@ -85,7 +85,6 @@ Source: "{#ReleaseDir}\Newtonsoft.Json.dll"; DestDir: "{app}"; Flags: ignorevers
 Source: "{#ReleaseDir}\SkiaSharp.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ReleaseDir}\libSkiaSharp.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ReleaseDir}\NAudio.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#ReleaseDir}\System.Memory.dll"; DestDir: "{app}"; Flags: ignoreversion
 
 ; SkiaSharp 原生库（x86/x64）
 Source: "{#ReleaseDir}\x86\libSkiaSharp.dll"; DestDir: "{app}\x86"; Flags: ignoreversion
