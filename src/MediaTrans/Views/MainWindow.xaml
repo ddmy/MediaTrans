@@ -134,6 +134,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="28"/>
                                 <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <!-- 面板标题 -->
                             <Border Grid.Row="0" Background="{DynamicResource BgLightBrush}">
@@ -152,6 +153,9 @@
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsEditorMode}" Value="True">
                                                         <Setter Property="Text" Value="点击切换裁剪文件"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsSpliceMode}" Value="True">
+                                                        <Setter Property="Text" Value="点击文件添加到拼接"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -199,6 +203,16 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+                            <!-- 拼接模式下底部操作按钮 -->
+                            <Border Grid.Row="2" Background="{DynamicResource BgLightBrush}" Padding="6,4"
+                                    Visibility="{Binding IsSpliceMode, Converter={StaticResource BoolToVisibility}}">
+                                <Button Content="➕ 再次添加选中文件"
+                                        Style="{StaticResource DarkButton}"
+                                        Command="{Binding AddToSpliceCommand}"
+                                        FontSize="11" Padding="8,4"
+                                        HorizontalAlignment="Stretch"
+                                        ToolTip="将当前选中文件再添加一次到拼接列表"/>
+                            </Border>
                         </Grid>
                     </Border>
 

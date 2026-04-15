@@ -962,33 +962,75 @@ namespace MediaTrans.ViewModels
             {
                 foreach (var path in dialog.FileNames)
                 {
-                    double dur = 0;
-                    string durText = "--:--";
-                    try
-                    {
-                        using (var reader = new NAudio.Wave.AudioFileReader(path))
-                        {
-                            dur = reader.TotalTime.TotalSeconds;
-                            durText = SecondsToTimeText(dur);
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // 无法通过 NAudio 读取时长（如纯视频文件），保留默认值
-                        durText = "未知时长";
-                    }
-
-                    _spliceFiles.Add(new SpliceEntry
-                    {
-                        FilePath = path,
-                        FileName = Path.GetFileName(path),
-                        DurationText = durText,
-                        TrimStart = 0,
-                        TrimEnd = dur
-                    });
+                    AddSpliceFileByPath(path);
                 }
                 SpliceExportCommand.RaiseCanExecuteChanged();
             }
+        }
+
+        /// <summary>
+        /// 从 MediaFileInfo 直接添加到拼接列表（供左侧面板调用）
+        /// </summary>
+        public void AddFileToSplice(MediaFileInfo file)
+        {
+            if (file == null) return;
+            double dur = file.DurationSeconds;
+            string durText = dur > 0 ? SecondsToTimeText(dur) : "未知时长";
+            _spliceFiles.Add(new SpliceEntry
+            {
+                FilePath = file.FilePath,
+                FileName = file.FileName,
+                DurationText = durText,
+                TrimStart = 0,
+                TrimEnd = dur
+            });
+            SpliceExportCommand.RaiseCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// 移除拼接列表中匹配指定路径的所有条目
+        /// </summary>
+        public void RemoveSpliceEntriesByPath(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+            for (int i = _spliceFiles.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(_spliceFiles[i].FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _spliceFiles.RemoveAt(i);
+                }
+            }
+            SpliceExportCommand.RaiseCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// 通过文件路径添加到拼接列表（读取时长）
+        /// </summary>
+        private void AddSpliceFileByPath(string path)
+        {
+            double dur = 0;
+            string durText = "--:--";
+            try
+            {
+                using (var reader = new NAudio.Wave.AudioFileReader(path))
+                {
+                    dur = reader.TotalTime.TotalSeconds;
+                    durText = SecondsToTimeText(dur);
+                }
+            }
+            catch (Exception)
+            {
+                durText = "未知时长";
+            }
+
+            _spliceFiles.Add(new SpliceEntry
+            {
+                FilePath = path,
+                FileName = Path.GetFileName(path),
+                DurationText = durText,
+                TrimStart = 0,
+                TrimEnd = dur
+            });
         }
 
         private void OnRemoveSpliceFile(object parameter)
@@ -1064,11 +1106,14 @@ namespace MediaTrans.ViewModels
             {
                 double dur = entry.TrimEnd - entry.TrimStart;
                 if (dur <= 0) dur = entry.TrimEnd;
+                // 仅当用户进行了裁剪时才设置 DurationSeconds，
+                // 整段文件不设 -t 可避免 NAudio 与 FFmpeg 时长微差导致截短
+                bool isTrimmed = entry.TrimStart > 0.001;
                 segments.Add(new ClipSegment
                 {
                     SourceFilePath = entry.FilePath,
                     StartSeconds = entry.TrimStart,
-                    DurationSeconds = dur
+                    DurationSeconds = isTrimmed ? dur : 0
                 });
                 totalDur += dur;
             }

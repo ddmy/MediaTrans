@@ -116,6 +116,15 @@ namespace MediaTrans.ViewModels
                     {
                         EditorVm.LoadFile(value);
                     }
+                    // 拼接模式下，选中文件自动添加到拼接列表
+                    if (_isSpliceMode && value != null && EditorVm != null)
+                    {
+                        EditorVm.AddFileToSplice(value);
+                    }
+                    if (AddToSpliceCommand != null)
+                    {
+                        AddToSpliceCommand.RaiseCanExecuteChanged();
+                    }
                 }
             }
         }
@@ -233,6 +242,11 @@ namespace MediaTrans.ViewModels
         public RelayCommand SwitchToAudioToolCommand { get; private set; }
 
         /// <summary>
+        /// 将当前选中文件添加到拼接列表（可重复添加同一文件）
+        /// </summary>
+        public RelayCommand AddToSpliceCommand { get; private set; }
+
+        /// <summary>
         /// 是否为音频工具模式（true=音频，false=视频）
         /// </summary>
         public bool IsAudioToolMode
@@ -306,6 +320,7 @@ namespace MediaTrans.ViewModels
             OpenAboutCommand = new RelayCommand(OnOpenAbout);
             SwitchToVideoToolCommand = new RelayCommand(o => { IsAudioToolMode = false; });
             SwitchToAudioToolCommand = new RelayCommand(o => { IsAudioToolMode = true; });
+            AddToSpliceCommand = new RelayCommand(OnAddToSplice, o => _isSpliceMode && _selectedFile != null);
             _conversionService.ProgressChanged += OnConversionProgressChanged;
         }
 
@@ -844,6 +859,18 @@ namespace MediaTrans.ViewModels
         {
             IsEditorMode = false;
             IsSpliceMode = true;
+            if (AddToSpliceCommand != null)
+            {
+                AddToSpliceCommand.RaiseCanExecuteChanged();
+            }
+        }
+
+        private void OnAddToSplice(object parameter)
+        {
+            if (_selectedFile != null && EditorVm != null)
+            {
+                EditorVm.AddFileToSplice(_selectedFile);
+            }
         }
 
         /// <summary>
@@ -938,6 +965,12 @@ namespace MediaTrans.ViewModels
                 && EditorVm.CurrentFile != null
                 && string.Equals(EditorVm.CurrentFile.FilePath, _selectedFile.FilePath, StringComparison.OrdinalIgnoreCase);
 
+            // 同步清理拼接列表中的对应条目
+            if (EditorVm != null)
+            {
+                EditorVm.RemoveSpliceEntriesByPath(_selectedFile.FilePath);
+            }
+
             int index = Files.IndexOf(_selectedFile);
             Files.Remove(_selectedFile);
 
@@ -1015,6 +1048,10 @@ namespace MediaTrans.ViewModels
             ExtractAudioCommand.RaiseCanExecuteChanged();
             ExtractVideoCommand.RaiseCanExecuteChanged();
             RemoveFileCommand.RaiseCanExecuteChanged();
+            if (AddToSpliceCommand != null)
+            {
+                AddToSpliceCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 }

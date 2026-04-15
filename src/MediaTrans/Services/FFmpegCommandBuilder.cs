@@ -43,6 +43,26 @@ namespace MediaTrans.Services
         }
 
         /// <summary>
+        /// 添加带前置选项的输入文件（如 -ss / -t 放在 -i 之前，实现 per-input seek/duration）
+        /// </summary>
+        public FFmpegCommandBuilder InputWithOptions(string inputPath, string preOptions)
+        {
+            if (string.IsNullOrEmpty(inputPath))
+            {
+                throw new ArgumentNullException("inputPath");
+            }
+            if (string.IsNullOrEmpty(preOptions))
+            {
+                _inputs.Add(string.Format("-i \"{0}\"", inputPath));
+            }
+            else
+            {
+                _inputs.Add(string.Format("{0} -i \"{1}\"", preOptions, inputPath));
+            }
+            return this;
+        }
+
+        /// <summary>
         /// 设置视频编解码器 (-c:v)
         /// </summary>
         public FFmpegCommandBuilder VideoCodec(string codec)

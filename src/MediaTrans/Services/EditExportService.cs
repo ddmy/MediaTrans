@@ -149,9 +149,9 @@ namespace MediaTrans.Services
                     {
                         errors.Add(string.Format("第 {0} 段源文件路径不能为空", i + 1));
                     }
-                    if (seg.DurationSeconds <= 0)
+                    if (seg.DurationSeconds < 0)
                     {
-                        errors.Add(string.Format("第 {0} 段持续时长必须大于 0", i + 1));
+                        errors.Add(string.Format("第 {0} 段持续时长不能为负数", i + 1));
                     }
                     if (seg.StartSeconds < 0)
                     {
@@ -297,25 +297,27 @@ namespace MediaTrans.Services
 
             var builder = new FFmpegCommandBuilder();
 
-            // 添加所有输入片段，每段带 -ss 和 -t 裁剪
+            // 添加所有输入片段，每段带 -ss 和 -t 裁剪（放在 -i 前面实现 per-input seek）
             var filterParts = new StringBuilder();
             int segCount = exportParams.Segments.Count;
 
             for (int i = 0; i < segCount; i++)
             {
                 var seg = exportParams.Segments[i];
-                // 每段独立 -ss -t -i 参数
+                // 构建 per-input 前置选项：-ss X -t Y
+                var preOpts = new StringBuilder();
                 if (seg.StartSeconds > 0)
                 {
-                    builder.Option(string.Format(CultureInfo.InvariantCulture,
+                    preOpts.Append(string.Format(CultureInfo.InvariantCulture,
                         "-ss {0:F6}", seg.StartSeconds));
                 }
                 if (seg.DurationSeconds > 0)
                 {
-                    builder.Option(string.Format(CultureInfo.InvariantCulture,
+                    if (preOpts.Length > 0) preOpts.Append(" ");
+                    preOpts.Append(string.Format(CultureInfo.InvariantCulture,
                         "-t {0:F6}", seg.DurationSeconds));
                 }
-                builder.Input(seg.SourceFilePath);
+                builder.InputWithOptions(seg.SourceFilePath, preOpts.ToString());
             }
 
             // 构建 filter_complex

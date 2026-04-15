@@ -124,7 +124,7 @@ namespace MediaTrans.Tests
         }
 
         [Fact]
-        public void 校验_多段片段时长为0_返回错误()
+        public void 校验_多段片段时长为0_表示整段不设t_无错误()
         {
             var p = new EditExportParams
             {
@@ -133,6 +133,22 @@ namespace MediaTrans.Tests
                 Segments = new List<ClipSegment>
                 {
                     new ClipSegment { SourceFilePath = "a.mp4", DurationSeconds = 0 }
+                }
+            };
+            var errors = _service.ValidateParams(p);
+            Assert.Empty(errors);
+        }
+
+        [Fact]
+        public void 校验_多段片段时长为负数_返回错误()
+        {
+            var p = new EditExportParams
+            {
+                OutputFilePath = "out.mp4",
+                TargetFormat = ".mp4",
+                Segments = new List<ClipSegment>
+                {
+                    new ClipSegment { SourceFilePath = "a.mp4", DurationSeconds = -1 }
                 }
             };
             var errors = _service.ValidateParams(p);
