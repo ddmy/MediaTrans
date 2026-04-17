@@ -187,5 +187,37 @@ namespace MediaTrans.Services
         // Win32 API — 检查波形音频设备数量（兼容所有 Windows 版本）
         [DllImport("winmm.dll")]
         private static extern int waveOutGetNumDevs();
+
+        /// <summary>
+        /// 检查 VC++ 2015-2022 Redistributable 是否已安装
+        /// SkiaSharp 原生库 (libSkiaSharp.dll) 依赖此运行时
+        /// </summary>
+        public bool IsVcRedistInstalled()
+        {
+            try
+            {
+                // 根据当前进程位数选择对应注册表路径
+                string arch = Is64BitProcess() ? "x64" : "x86";
+                string keyPath = string.Format(
+                    @"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\{0}", arch);
+
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath))
+                {
+                    if (key != null)
+                    {
+                        object installed = key.GetValue("Installed");
+                        if (installed != null && Convert.ToInt32(installed) == 1)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 注册表访问失败
+            }
+            return false;
+        }
     }
 }

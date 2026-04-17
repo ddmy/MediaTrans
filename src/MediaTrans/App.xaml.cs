@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Windows;
 using System.Windows.Threading;
 using MediaTrans.Services;
@@ -15,6 +16,11 @@ namespace MediaTrans
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // Win7 默认仅启用 TLS 1.0，强制启用 TLS 1.2 以兼容现代 HTTPS 服务
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
+                | SecurityProtocolType.Tls11
+                | SecurityProtocolType.Tls12;
 
             // 初始化日志服务
             InitializeLogging();
@@ -57,6 +63,8 @@ namespace MediaTrans
                     logger.Info(compat.GetSystemSummary());
                     logger.Info(string.Format("DPI: {0}x{1} (缩放 {2:P0}x{3:P0})",
                         DpiHelper.DpiX, DpiHelper.DpiY, DpiHelper.ScaleX, DpiHelper.ScaleY));
+                    logger.Info(string.Format("VC++ Runtime: {0}",
+                        compat.IsVcRedistInstalled() ? "已安装" : "未检测到"));
                 }
             }
             catch (Exception ex)

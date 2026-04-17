@@ -39,7 +39,7 @@ namespace MediaTrans.ViewModels
 
         // 在线播放相关
         private NAudio.Wave.WaveOut _waveOut;
-        private NAudio.Wave.MediaFoundationReader _mediaReader;
+        private NAudio.Wave.AudioFileReader _mediaReader;
         private bool _isPlaying;
         private string _playingUrl;
         private string _tempPlaybackFile;
@@ -547,7 +547,7 @@ namespace MediaTrans.ViewModels
                     return;
                 }
 
-                // 下载到临时文件（CDN 通常需要 HTTP 请求头，MediaFoundationReader 直接打开 URL 会失败）
+                // 下载到临时文件（CDN 通常需要 HTTP 请求头，URL 直接打开会失败）
                 string tempFile = null;
                 try
                 {
@@ -613,7 +613,7 @@ namespace MediaTrans.ViewModels
                 _tempPlaybackFile = localFile;
                 _playingUrl = localFile;
 
-                _mediaReader = new NAudio.Wave.MediaFoundationReader(localFile);
+                _mediaReader = new NAudio.Wave.AudioFileReader(localFile);
                 _waveOut = new NAudio.Wave.WaveOut();
                 _waveOut.Init(_mediaReader);
                 _waveOut.PlaybackStopped += (s, e) =>

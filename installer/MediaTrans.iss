@@ -6,6 +6,10 @@
 ;   1. Release 编译输出位于 src\MediaTrans\bin\Release\
 ;   2. 混淆后输出位于 src\MediaTrans\bin\Confused\（可选，优先使用混淆版本）
 ;   3. FFmpeg 静态编译版位于 lib\ffmpeg\（ffmpeg.exe + ffprobe.exe）
+;   4. 运行时依赖放在 installer\redist\：
+;      - NDP452-KB2901907-x86-x64-AllOS-ENU.exe（.NET 4.5.2 离线安装包）
+;      - vc_redist.x86.exe（VC++ 2015-2022 Redistributable x86）
+;      - vc_redist.x64.exe（VC++ 2015-2022 Redistributable x64）
 
 #define MyAppName "MediaTrans"
 #define MyAppVersion "1.0.0"
@@ -25,6 +29,7 @@
 
 #define ReleaseDir ProjectRoot + "src\MediaTrans\bin\Release"
 #define FFmpegDir ProjectRoot + "lib\ffmpeg"
+#define RedistDir "redist"
 #define OutputDir ProjectRoot + "dist"
 
 [Setup]
@@ -45,8 +50,8 @@ OutputBaseFilename=MediaTrans_Setup_{#MyAppVersion}
 ; 压缩设置
 Compression=lzma2/max
 SolidCompression=yes
-; 权限：不需要管理员权限（安装到用户目录）
-PrivilegesRequired=lowest
+; 权限：安装运行时依赖可能需要管理员权限
+PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 ; 支持路径中的空格和中文
 AllowUNCPath=no
@@ -110,6 +115,17 @@ Source: "{#MusicServerDir}\providers\*"; DestDir: "{app}\lib\music-server\provid
 Source: "{#MusicServerDir}\services\*"; DestDir: "{app}\lib\music-server\services"; Flags: ignoreversion recursesubdirs
 Source: "{#MusicServerDir}\utils\*"; DestDir: "{app}\lib\music-server\utils"; Flags: ignoreversion recursesubdirs
 
+; 运行时依赖（内嵌到临时目录，安装后自动删除）
+#ifexist "redist\NDP452-KB2901907-x86-x64-AllOS-ENU.exe"
+Source: "{#RedistDir}\NDP452-KB2901907-x86-x64-AllOS-ENU.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: not IsDotNetInstalled
+#endif
+#ifexist "redist\vc_redist.x86.exe"
+Source: "{#RedistDir}\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: NeedVcRedist('x86')
+#endif
+#ifexist "redist\vc_redist.x64.exe"
+Source: "{#RedistDir}\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: NeedVcRedist('x64') and IsWin64
+#endif
+
 [Icons]
 ; 开始菜单
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -122,6 +138,17 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon
 
 [Run]
+; 安装运行时依赖（静默模式，安装主程序之前）
+#ifexist "redist\NDP452-KB2901907-x86-x64-AllOS-ENU.exe"
+Filename: "{tmp}\NDP452-KB2901907-x86-x64-AllOS-ENU.exe"; Parameters: "/q /norestart"; StatusMsg: "正在安装 .NET Framework 4.5.2..."; Flags: waituntilterminated; Check: not IsDotNetInstalled
+#endif
+#ifexist "redist\vc_redist.x86.exe"
+Filename: "{tmp}\vc_redist.x86.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "正在安装 VC++ 运行时 (x86)..."; Flags: waituntilterminated; Check: NeedVcRedist('x86')
+#endif
+#ifexist "redist\vc_redist.x64.exe"
+Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "正在安装 VC++ 运行时 (x64)..."; Flags: waituntilterminated; Check: NeedVcRedist('x64') and IsWin64
+#endif
+
 ; 安装完成后运行
 Filename: "{app}\{#MyAppExeName}"; Description: "立即运行 {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
@@ -148,26 +175,69 @@ begin
     Result := (releaseValue >= DOTNET_452_RELEASE);
 end;
 
+// VC++ 2015-2022 Redistributable 注册表检测
+function IsVcRedistInstalled(Arch: String): Boolean;
+var
+  installed: Cardinal;
+begin
+  Result := RegQueryDWordValue(HKLM,
+    'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\' + Arch,
+    'Installed', installed);
+  if Result then
+    Result := (installed = 1);
+end;
+
+// 检查是否需要安装 VC++ Redistributable（Check 函数）
+function NeedVcRedist(Arch: String): Boolean;
+begin
+  Result := not IsVcRedistInstalled(Arch);
+end;
+
 // 初始化安装向导：检查 .NET Framework
 function InitializeSetup: Boolean;
 var
-  ErrorCode: Integer;
+  DotNetInstallerPath: String;
+  ResultCode: Integer;
 begin
   Result := True;
   
   if not IsDotNetInstalled then
   begin
-    if MsgBox('MediaTrans 需要 .NET Framework 4.5.2 或更高版本。'#13#10#13#10 +
-              '是否立即下载安装 .NET Framework 4.5.2？'#13#10 +
-              '（安装完成后请重新运行本安装程序）',
-              mbConfirmation, MB_YESNO) = IDYES then
+    // 检查是否内嵌了 .NET 离线安装包
+    DotNetInstallerPath := ExpandConstant('{src}\redist\NDP452-KB2901907-x86-x64-AllOS-ENU.exe');
+    if FileExists(DotNetInstallerPath) then
     begin
-      // 引导用户到微软官方下载页面
-      ShellExec('open', 
-        'https://dotnet.microsoft.com/download/dotnet-framework/net452',
-        '', '', SW_SHOW, ewNoWait, ErrorCode);
+      if MsgBox('MediaTrans 需要 .NET Framework 4.5.2 或更高版本。'#13#10#13#10 +
+                '安装包已内置 .NET Framework 4.5.2，是否立即安装？'#13#10 +
+                '（安装过程可能需要几分钟）',
+                mbConfirmation, MB_YESNO) = IDYES then
+      begin
+        Exec(DotNetInstallerPath, '/q /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
+        // 重新检测安装结果
+        if not IsDotNetInstalled then
+        begin
+          MsgBox('.NET Framework 4.5.2 安装可能未成功。'#13#10 +
+                 '请重启计算机后重新运行安装程序。', mbError, MB_OK);
+          Result := False;
+        end;
+      end
+      else
+        Result := False;
+    end
+    else
+    begin
+      // 离线安装包不存在，引导用户到官方下载
+      if MsgBox('MediaTrans 需要 .NET Framework 4.5.2 或更高版本。'#13#10#13#10 +
+                '是否立即打开下载页面？'#13#10 +
+                '（安装完成后请重新运行本安装程序）',
+                mbConfirmation, MB_YESNO) = IDYES then
+      begin
+        ShellExec('open', 
+          'https://dotnet.microsoft.com/download/dotnet-framework/net452',
+          '', '', SW_SHOW, ewNoWait, ResultCode);
+      end;
+      Result := False;
     end;
-    Result := False;
   end;
 end;
 
