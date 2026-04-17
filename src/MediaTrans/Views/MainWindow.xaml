@@ -172,11 +172,12 @@
                                 </Grid>
                             </Border>
                             <!-- 文件列表区域 -->
-                            <ListBox Grid.Row="1" Style="{StaticResource DarkListBox}" 
+                            <ListBox x:Name="FileListBox" Grid.Row="1" Style="{StaticResource DarkListBox}" 
                                      BorderThickness="0"
                                      Background="{DynamicResource BgDarkBrush}"
                                      ItemsSource="{Binding Files}"
                                      SelectedItem="{Binding SelectedFile}"
+                                     PreviewMouseLeftButtonDown="FileListBox_PreviewMouseLeftButtonDown"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>

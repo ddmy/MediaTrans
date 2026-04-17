@@ -707,7 +707,8 @@ namespace MediaTrans.Tests
             string[] expected = new string[]
             {
                 ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm",
-                ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a"
+                ".ts", ".mpg", ".mpeg",
+                ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus"
             };
 
             foreach (var format in expected)
@@ -715,7 +716,7 @@ namespace MediaTrans.Tests
                 Assert.Contains(format, formats);
             }
 
-            Assert.Equal(14, formats.Count);
+            Assert.Equal(18, formats.Count);
         }
 
         [Fact]

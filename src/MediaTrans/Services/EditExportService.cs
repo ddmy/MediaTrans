@@ -72,6 +72,11 @@ namespace MediaTrans.Services
         /// 片段持续时长（秒）
         /// </summary>
         public double DurationSeconds { get; set; }
+
+        /// <summary>
+        /// 源文件是否包含音频流
+        /// </summary>
+        public bool HasAudio { get; set; }
     }
 
     /// <summary>
@@ -348,42 +353,135 @@ namespace MediaTrans.Services
             }
             else
             {
-                // 视频+音频: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[v_out][a_out]
-                for (int i = 0; i < segCount; i++)
+                // 判断输入文件是否全部含音频
+                bool allHaveAudio = true;
+                bool anyHasAudio = false;
+                foreach (var seg in exportParams.Segments)
                 {
-                    filterParts.Append(string.Format("[{0}:v][{0}:a]", i));
+                    if (seg.HasAudio)
+                    {
+                        anyHasAudio = true;
+                    }
+                    else
+                    {
+                        allHaveAudio = false;
+                    }
                 }
-                filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
 
                 bool hasGain = Math.Abs(exportParams.GainDb) > 0.01;
                 bool needWatermark = _paywallService != null && _paywallService.ShouldAddWatermark(true);
 
-                if (hasGain && needWatermark)
+                if (allHaveAudio)
                 {
-                    double linear = GainService.DbToLinear(exportParams.GainDb);
-                    string wm = _paywallService.BuildWatermarkFilter();
-                    filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                        "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
+                    // 所有文件都有音频：[0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1
+                    for (int i = 0; i < segCount; i++)
+                    {
+                        filterParts.Append(string.Format("[{0}:v][{0}:a]", i));
+                    }
+                    filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
+
+                    if (hasGain && needWatermark)
+                    {
+                        double linear = GainService.DbToLinear(exportParams.GainDb);
+                        string wm = _paywallService.BuildWatermarkFilter();
+                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                            "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
+                    }
+                    else if (hasGain)
+                    {
+                        double linear = GainService.DbToLinear(exportParams.GainDb);
+                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                            "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
+                    }
+                    else if (needWatermark)
+                    {
+                        string wm = _paywallService.BuildWatermarkFilter();
+                        filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
+                    }
+                    else
+                    {
+                        filterParts.Append("[v_out][a_out]");
+                    }
+
+                    builder.FilterComplex(filterParts.ToString());
+                    builder.Map("[v_out]");
+                    builder.Map("[a_out]");
                 }
-                else if (hasGain)
+                else if (!anyHasAudio)
                 {
-                    double linear = GainService.DbToLinear(exportParams.GainDb);
-                    filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                        "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
-                }
-                else if (needWatermark)
-                {
-                    string wm = _paywallService.BuildWatermarkFilter();
-                    filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
+                    // 所有文件都没有音频：[0:v][1:v]...concat=n=N:v=1:a=0
+                    for (int i = 0; i < segCount; i++)
+                    {
+                        filterParts.Append(string.Format("[{0}:v]", i));
+                    }
+                    filterParts.Append(string.Format("concat=n={0}:v=1:a=0", segCount));
+
+                    if (needWatermark)
+                    {
+                        string wm = _paywallService.BuildWatermarkFilter();
+                        filterParts.Append(string.Format("[v_tmp];[v_tmp]{0}[v_out]", wm));
+                    }
+                    else
+                    {
+                        filterParts.Append("[v_out]");
+                    }
+
+                    builder.FilterComplex(filterParts.ToString());
+                    builder.Map("[v_out]");
+                    builder.NoAudio();
                 }
                 else
                 {
-                    filterParts.Append("[v_out][a_out]");
-                }
+                    // 混合情况：部分有音频部分没有，为无音频的输入添加静音音轨
+                    // 先添加一个静音音源作为额外输入
+                    builder.InputWithOptions("anullsrc=r=44100:cl=stereo", "-f lavfi");
+                    int silenceIdx = segCount; // 静音音源的输入索引
 
-                builder.FilterComplex(filterParts.ToString());
-                builder.Map("[v_out]");
-                builder.Map("[a_out]");
+                    for (int i = 0; i < segCount; i++)
+                    {
+                        var seg = exportParams.Segments[i];
+                        filterParts.Append(string.Format("[{0}:v]", i));
+                        if (seg.HasAudio)
+                        {
+                            filterParts.Append(string.Format("[{0}:a]", i));
+                        }
+                        else
+                        {
+                            // 使用静音音源，用 atrim 截取到与该片段相同时长
+                            double segDur = seg.DurationSeconds > 0 ? seg.DurationSeconds : 10;
+                            filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                                "[{0}:a]atrim=0:{1:F3}[sil{2}];[sil{2}]", silenceIdx, segDur, i));
+                        }
+                    }
+                    filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
+
+                    if (hasGain && needWatermark)
+                    {
+                        double linear = GainService.DbToLinear(exportParams.GainDb);
+                        string wm = _paywallService.BuildWatermarkFilter();
+                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                            "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
+                    }
+                    else if (hasGain)
+                    {
+                        double linear = GainService.DbToLinear(exportParams.GainDb);
+                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                            "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
+                    }
+                    else if (needWatermark)
+                    {
+                        string wm = _paywallService.BuildWatermarkFilter();
+                        filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
+                    }
+                    else
+                    {
+                        filterParts.Append("[v_out][a_out]");
+                    }
+
+                    builder.FilterComplex(filterParts.ToString());
+                    builder.Map("[v_out]");
+                    builder.Map("[a_out]");
+                }
 
                 string videoCodec = codecs.VideoCodec;
                 if (exportParams.Preset != null && !string.IsNullOrEmpty(exportParams.Preset.VideoCodec))
@@ -393,12 +491,24 @@ namespace MediaTrans.Services
                 builder.VideoCodec(videoCodec);
             }
 
-            string audioCodec = codecs.AudioCodec;
-            if (exportParams.Preset != null && !string.IsNullOrEmpty(exportParams.Preset.AudioCodec))
+            // 仅当输出包含音频流时设置音频编解码器
+            bool hasAudioOutput = isAudioOnly;
+            if (!isAudioOnly)
             {
-                audioCodec = exportParams.Preset.AudioCodec;
+                foreach (var seg in exportParams.Segments)
+                {
+                    if (seg.HasAudio) { hasAudioOutput = true; break; }
+                }
             }
-            builder.AudioCodec(audioCodec);
+            if (hasAudioOutput)
+            {
+                string audioCodec = codecs.AudioCodec;
+                if (exportParams.Preset != null && !string.IsNullOrEmpty(exportParams.Preset.AudioCodec))
+                {
+                    audioCodec = exportParams.Preset.AudioCodec;
+                }
+                builder.AudioCodec(audioCodec);
+            }
 
             // 预设参数
             if (exportParams.Preset != null)

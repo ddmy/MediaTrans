@@ -55,12 +55,17 @@ namespace MediaTrans.Services
                 case ".wmv":  return "WMV 视频文件|*.wmv|所有文件|*.*";
                 case ".flv":  return "FLV 视频文件|*.flv|所有文件|*.*";
                 case ".webm": return "WebM 视频文件|*.webm|所有文件|*.*";
+                case ".ts":   return "TS 视频文件|*.ts|所有文件|*.*";
+                case ".mpg":  return "MPG 视频文件|*.mpg|所有文件|*.*";
+                case ".mpeg": return "MPEG 视频文件|*.mpeg|所有文件|*.*";
                 case ".mp3":  return "MP3 音频文件|*.mp3|所有文件|*.*";
                 case ".wav":  return "WAV 音频文件|*.wav|所有文件|*.*";
                 case ".flac": return "FLAC 音频文件|*.flac|所有文件|*.*";
                 case ".aac":  return "AAC 音频文件|*.aac|所有文件|*.*";
                 case ".ogg":  return "OGG 音频文件|*.ogg|所有文件|*.*";
+                case ".wma":  return "WMA 音频文件|*.wma|所有文件|*.*";
                 case ".m4a":  return "M4A 音频文件|*.m4a|所有文件|*.*";
+                case ".opus": return "Opus 音频文件|*.opus|所有文件|*.*";
                 default:      return "媒体文件|*" + ext + "|所有文件|*.*";
             }
         }

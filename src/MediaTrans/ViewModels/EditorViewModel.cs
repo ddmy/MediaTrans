@@ -322,8 +322,8 @@ namespace MediaTrans.ViewModels
             {
                 var all = new List<string>
                 {
-                    ".mp4", ".mkv", ".avi", ".mov", ".webm",
-                    ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a"
+                    ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".ts", ".mpg", ".mpeg",
+                    ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus"
                 };
                 if (_paywallService != null)
                 {
@@ -982,7 +982,9 @@ namespace MediaTrans.ViewModels
                 FileName = file.FileName,
                 DurationText = durText,
                 TrimStart = 0,
-                TrimEnd = dur
+                TrimEnd = dur,
+                HasAudio = file.HasAudio,
+                HasVideo = file.HasVideo
             });
             SpliceExportCommand.RaiseCanExecuteChanged();
         }
@@ -1029,7 +1031,9 @@ namespace MediaTrans.ViewModels
                 FileName = Path.GetFileName(path),
                 DurationText = durText,
                 TrimStart = 0,
-                TrimEnd = dur
+                TrimEnd = dur,
+                HasAudio = true,
+                HasVideo = true
             });
         }
 
@@ -1113,7 +1117,8 @@ namespace MediaTrans.ViewModels
                 {
                     SourceFilePath = entry.FilePath,
                     StartSeconds = entry.TrimStart,
-                    DurationSeconds = isTrimmed ? dur : 0
+                    DurationSeconds = isTrimmed ? dur : 0,
+                    HasAudio = entry.HasAudio
                 });
                 totalDur += dur;
             }
@@ -1302,5 +1307,7 @@ namespace MediaTrans.ViewModels
         public string DurationText { get; set; }
         public double TrimStart { get; set; }
         public double TrimEnd { get; set; }
+        public bool HasAudio { get; set; }
+        public bool HasVideo { get; set; }
     }
 }

@@ -392,8 +392,8 @@ namespace MediaTrans.Tests
                 TargetFormat = ".mp4",
                 Segments = new List<ClipSegment>
                 {
-                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10 },
-                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 5, DurationSeconds = 15 }
+                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = true },
+                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 5, DurationSeconds = 15, HasAudio = true }
                 }
             };
 
@@ -442,8 +442,8 @@ namespace MediaTrans.Tests
                 GainDb = 3.0,
                 Segments = new List<ClipSegment>
                 {
-                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10 },
-                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 0, DurationSeconds = 10 }
+                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = true },
+                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = true }
                 }
             };
 
@@ -483,6 +483,31 @@ namespace MediaTrans.Tests
             };
 
             Assert.Throws<InvalidOperationException>(() => _service.BuildConcatExportArguments(p));
+        }
+
+        [Fact]
+        public void 拼接导出_无音频视频_使用纯视频concat()
+        {
+            var p = new EditExportParams
+            {
+                OutputFilePath = "output.mp4",
+                TargetFormat = ".mp4",
+                Segments = new List<ClipSegment>
+                {
+                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = false },
+                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = false }
+                }
+            };
+
+            string args = _service.BuildConcatExportArguments(p);
+
+            Assert.Contains("concat=n=2:v=1:a=0", args);
+            Assert.Contains("[0:v]", args);
+            Assert.Contains("[1:v]", args);
+            Assert.DoesNotContain("[0:a]", args);
+            Assert.DoesNotContain("-c:a", args);
+            Assert.Contains("-an", args);
+            Assert.Contains("-c:v libx264", args);
         }
 
         #endregion

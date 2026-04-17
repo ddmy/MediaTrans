@@ -30,13 +30,17 @@ namespace MediaTrans.Services
             { ".wmv",  new FormatCodecMapping("wmv2", "wmav2") },
             { ".flv",  new FormatCodecMapping("flv1", "mp3lame") },
             { ".webm", new FormatCodecMapping("libvpx", "libvorbis") },
+            { ".ts",   new FormatCodecMapping("libx264", "aac") },
+            { ".mpg",  new FormatCodecMapping("mpeg2video", "mp2") },
+            { ".mpeg", new FormatCodecMapping("mpeg2video", "mp2") },
             { ".mp3",  new FormatCodecMapping(null, "libmp3lame") },
             { ".wav",  new FormatCodecMapping(null, "pcm_s16le") },
             { ".flac", new FormatCodecMapping(null, "flac") },
             { ".aac",  new FormatCodecMapping(null, "aac") },
             { ".ogg",  new FormatCodecMapping(null, "libvorbis") },
             { ".wma",  new FormatCodecMapping(null, "wmav2") },
-            { ".m4a",  new FormatCodecMapping(null, "aac") }
+            { ".m4a",  new FormatCodecMapping(null, "aac") },
+            { ".opus", new FormatCodecMapping(null, "libopus") }
         };
 
         /// <summary>
@@ -243,7 +247,17 @@ namespace MediaTrans.Services
             {
                 return codec.Contains("wmav");
             }
-            // 其他容器（mp4/mkv/mov/m4a/aac 等）对 aac/libmp3lame 等均兼容，宽松处理
+            // Opus 只接受 libopus
+            if (ext == ".opus")
+            {
+                return codec == "libopus" || codec == "opus";
+            }
+            // MPEG/MPG 只接受 mp2
+            if (ext == ".mpg" || ext == ".mpeg")
+            {
+                return codec == "mp2" || codec == "mp3" || codec == "libmp3lame";
+            }
+            // 其他容器（mp4/mkv/mov/m4a/aac/ts 等）对 aac/libmp3lame 等均兼容，宽松处理
             return true;
         }
 
@@ -532,8 +546,8 @@ namespace MediaTrans.Services
         {
             return new List<string>
             {
-                ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm",
-                ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a"
+                ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".ts", ".mpg", ".mpeg",
+                ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus"
             };
         }
     }

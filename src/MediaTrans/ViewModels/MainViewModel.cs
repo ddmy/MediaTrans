@@ -33,9 +33,9 @@ namespace MediaTrans.ViewModels
         private bool _isAudioToolMode;
 
         private static readonly List<string> _videoFormats =
-            new List<string> { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm" };
+            new List<string> { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".ts", ".mpg", ".mpeg" };
         private static readonly List<string> _audioFormats =
-            new List<string> { ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a" };
+            new List<string> { ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus" };
 
 
         public MainViewModel()

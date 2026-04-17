@@ -1,7 +1,10 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using MediaTrans.Models;
 using MediaTrans.Services;
 using MediaTrans.ViewModels;
 
@@ -200,6 +203,37 @@ namespace MediaTrans.Views
             if (vm != null && vm.EditorVm != null && vm.EditorVm.IsAudioReady)
             {
                 vm.EditorVm.SeekToRatio(ratio);
+            }
+        }
+
+        /// <summary>
+        /// 拼接模式下，点击已选中文件也能重复添加到拼接列表
+        /// </summary>
+        private void FileListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var vm = DataContext as MainViewModel;
+            if (vm == null || !vm.IsSpliceMode || vm.EditorVm == null)
+            {
+                return;
+            }
+
+            // 从点击位置向上找到 ListBoxItem
+            var dep = e.OriginalSource as DependencyObject;
+            while (dep != null && !(dep is ListBoxItem))
+            {
+                dep = VisualTreeHelper.GetParent(dep);
+            }
+
+            var item = dep as ListBoxItem;
+            if (item == null) return;
+
+            var file = item.DataContext as MediaFileInfo;
+            if (file == null) return;
+
+            // 仅当点击的是已选中的同一项时手动添加（不同项由 setter 自动添加）
+            if (file == vm.SelectedFile)
+            {
+                vm.EditorVm.AddFileToSplice(file);
             }
         }
 
