@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -40,6 +42,7 @@ namespace MediaTrans.ViewModels
         private NAudio.Wave.MediaFoundationReader _mediaReader;
         private bool _isPlaying;
         private string _playingUrl;
+        private string _tempPlaybackFile;
 
         // 播放进度
         private DispatcherTimer _playbackTimer;
@@ -535,22 +538,47 @@ namespace MediaTrans.ViewModels
                     }
                 }
 
-                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                if (streamInfo == null || string.IsNullOrEmpty(streamInfo.Url))
                 {
-                    if (streamInfo == null || string.IsNullOrEmpty(streamInfo.Url))
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         StatusText = "无法获取播放链接，请尝试其他歌曲";
-                        return;
-                    }
+                    }));
+                    return;
+                }
 
+                // 下载到临时文件（CDN 通常需要 HTTP 请求头，MediaFoundationReader 直接打开 URL 会失败）
+                string tempFile = null;
+                try
+                {
+                    string ext = streamInfo.Format ?? "mp3";
+                    tempFile = Path.Combine(Path.GetTempPath(),
+                        string.Format("mt_play_{0}.{1}", Guid.NewGuid().ToString("N").Substring(0, 8), ext));
+                    DownloadForPlayback(streamInfo.Url, tempFile);
+                }
+                catch (Exception ex)
+                {
+                    CleanupTempFile(tempFile);
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StatusText = string.Format("播放失败: {0}", ex.Message);
+                    }));
+                    return;
+                }
+
+                var localFile = tempFile;
+                var platform = successPlatform;
+                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
                     try
                     {
-                        StartPlayback(streamInfo.Url);
+                        StartPlayback(localFile);
                         StatusText = string.Format("正在播放: {0} - {1} ({2})",
-                            result.SongName, result.Artist, successPlatform);
+                            result.SongName, result.Artist, platform);
                     }
                     catch (Exception ex)
                     {
+                        CleanupTempFile(localFile);
                         StatusText = string.Format("播放失败: {0}", ex.Message);
                     }
                 }));
@@ -577,15 +605,15 @@ namespace MediaTrans.ViewModels
             return ordered;
         }
 
-        private void StartPlayback(string url)
+        private void StartPlayback(string localFile)
         {
             try
             {
                 StopCurrentPlayback();
-                _playingUrl = url;
+                _tempPlaybackFile = localFile;
+                _playingUrl = localFile;
 
-                // 使用 NAudio 的 MediaFoundationReader 播放网络流
-                _mediaReader = new NAudio.Wave.MediaFoundationReader(url);
+                _mediaReader = new NAudio.Wave.MediaFoundationReader(localFile);
                 _waveOut = new NAudio.Wave.WaveOut();
                 _waveOut.Init(_mediaReader);
                 _waveOut.PlaybackStopped += (s, e) =>
@@ -607,6 +635,42 @@ namespace MediaTrans.ViewModels
                 StopCurrentPlayback();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 下载音频到本地临时文件用于播放
+        /// </summary>
+        private void DownloadForPlayback(string url, string destPath)
+        {
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "GET";
+            request.Timeout = 30000;
+            request.ReadWriteTimeout = 30000;
+            request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+
+            using (var response = (HttpWebResponse)request.GetResponse())
+            using (var responseStream = response.GetResponseStream())
+            using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write))
+            {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = responseStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    fileStream.Write(buffer, 0, count);
+                }
+            }
+        }
+
+        private void CleanupTempFile(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch { }
         }
 
         private void OnStopPlay(object parameter)
@@ -642,6 +706,8 @@ namespace MediaTrans.ViewModels
             }
             _playingUrl = null;
             IsPlaying = false;
+            CleanupTempFile(_tempPlaybackFile);
+            _tempPlaybackFile = null;
         }
 
         #endregion
