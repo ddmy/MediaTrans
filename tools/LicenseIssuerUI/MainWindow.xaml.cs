@@ -3,62 +3,166 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using KeyGenerator;
 using LicenseIssuer;
-using Microsoft.Win32;
 
 namespace LicenseIssuerUI
 {
     public partial class MainWindow : Window
     {
         private readonly LicenseIssuerService _issuerService;
-        private string _privateKeyPath;
+        private readonly RsaKeyGenerator _keyGen;
+        private string _privateKeyPem;
+        private string _assetsDir;
 
         public MainWindow()
         {
             InitializeComponent();
             _issuerService = new LicenseIssuerService();
+            _keyGen = new RsaKeyGenerator();
+
+            Loaded += MainWindow_Loaded;
         }
 
-        // ==================== 事件处理 ====================
+        // ==================== 初始化 ====================
 
-        private void BtnBrowseKey_Click(object sender, RoutedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog();
-            dlg.Title = "选择 RSA 私钥文件";
-            dlg.Filter = "PEM 私钥文件 (*.pem)|*.pem|所有文件 (*.*)|*.*";
-            dlg.CheckFileExists = true;
+            InitializeKeys();
+        }
 
-            if (dlg.ShowDialog() != true)
+        /// <summary>
+        /// 自动定位项目根目录并加载/生成密钥
+        /// </summary>
+        private void InitializeKeys()
+        {
+            // 向上查找 MediaTrans.sln 定位项目根目录
+            string projectRoot = FindProjectRoot();
+            if (projectRoot == null)
             {
+                TxtKeyStatus.Text = "⚠ 无法定位项目根目录（未找到 MediaTrans.sln）";
+                TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE0, 0x90, 0x40));
+                SetStatus("密钥加载失败：请将工具放在项目目录下运行", isError: true);
                 return;
             }
 
-            _privateKeyPath = dlg.FileName;
+            _assetsDir = Path.Combine(projectRoot, "src", "MediaTrans", "Assets");
 
-            // 验证文件内容是否像一个 PEM 私钥
+            string privateKeyPath = Path.Combine(_assetsDir, "private_key.pem");
+            string publicKeyPath = Path.Combine(_assetsDir, "public_key.pem");
+
+            bool hasPrivate = File.Exists(privateKeyPath);
+            bool hasPublic = File.Exists(publicKeyPath);
+
+            if (hasPrivate && hasPublic)
+            {
+                // 两个文件都在，直接加载
+                TxtKeyStatus.Text = "✅ 已加载项目密钥";
+                TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x82));
+                SetStatus("就绪 — 密钥已从项目目录加载");
+            }
+            else if (!hasPrivate && !hasPublic)
+            {
+                // 两个文件都不在，首次生成
+                try
+                {
+                    if (!Directory.Exists(_assetsDir))
+                    {
+                        Directory.CreateDirectory(_assetsDir);
+                    }
+                    _keyGen.GenerateKeyPair(_assetsDir);
+                    TxtKeyStatus.Text = "✅ 密钥对已自动生成（请重新编译项目）";
+                    TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x82));
+                    SetStatus(string.Format("密钥已生成到：{0}  ★ 请执行 mt.bat build 重新编译后再签发", _assetsDir));
+                    MessageBox.Show(
+                        string.Format("已自动生成密钥对到：\n{0}\n\n请先执行 mt.bat build Debug 重新编译项目，\n使新公钥嵌入到 MediaTrans.exe 后再签发激活码。", _assetsDir),
+                        "密钥已生成",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    TxtKeyStatus.Text = string.Format("⚠ 密钥生成失败：{0}", ex.Message);
+                    TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(0xE0, 0x50, 0x50));
+                    SetStatus("密钥生成失败", isError: true);
+                    return;
+                }
+            }
+            else if (!hasPrivate && hasPublic)
+            {
+                // 仅缺私钥：已有公钥已嵌入 exe，不能覆盖，提示用户手动处理
+                TxtKeyStatus.Text = "⚠ 缺少私钥文件（public_key.pem 已存在）";
+                TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE0, 0x50, 0x50));
+                SetStatus("错误：缺少 private_key.pem，请从备份恢复或删除 public_key.pem 后重新生成", isError: true);
+                MessageBox.Show(
+                    string.Format("在 {0} 中找到 public_key.pem 但缺少 private_key.pem。\n\n"
+                    + "该公钥可能已嵌入已发布的 exe，不能随意覆盖。\n\n"
+                    + "请选择：\n"
+                    + "1. 从备份恢复 private_key.pem 到该目录\n"
+                    + "2. 若确认需要重新生成，请手动删除 public_key.pem 后重启本工具", _assetsDir),
+                    "缺少私钥",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+            else
+            {
+                // 仅缺公钥（private 存在但 public 不在）：补生成公钥
+                TxtKeyStatus.Text = "⚠ 缺少公钥文件，异常状态";
+                TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE0, 0x50, 0x50));
+                SetStatus("错误：缺少 public_key.pem，请删除 private_key.pem 后重新生成密钥对", isError: true);
+                return;
+            }
+
+            // 读取私钥
             try
             {
-                string content = File.ReadAllText(_privateKeyPath, Encoding.UTF8);
-                if (!content.Contains("PRIVATE KEY"))
+                _privateKeyPem = File.ReadAllText(privateKeyPath, Encoding.UTF8);
+                if (!_privateKeyPem.Contains("PRIVATE KEY"))
                 {
-                    SetStatus("警告：所选文件可能不是有效的 RSA 私钥文件", isError: true);
-                }
-                else
-                {
-                    SetStatus(string.Format("已加载私钥：{0}", _privateKeyPath));
+                    TxtKeyStatus.Text = "⚠ 私钥文件内容无效";
+                    TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                        System.Windows.Media.Color.FromRgb(0xE0, 0x50, 0x50));
+                    _privateKeyPem = null;
                 }
             }
             catch (Exception ex)
             {
-                SetStatus(string.Format("读取私钥文件失败：{0}", ex.Message), isError: true);
-                _privateKeyPath = null;
+                TxtKeyStatus.Text = string.Format("⚠ 读取私钥失败：{0}", ex.Message);
+                TxtKeyStatus.Foreground = new System.Windows.Media.SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(0xE0, 0x50, 0x50));
+                _privateKeyPem = null;
             }
 
-            // 显示文件名（路径较长时只显示文件名）
-            TxtKeyPath.Tag = _privateKeyPath ?? "";
-            TxtKeyPath.Text = _privateKeyPath != null ? System.IO.Path.GetFileName(_privateKeyPath) : "";
-
             UpdateGenerateButton();
+        }
+
+        /// <summary>
+        /// 向上查找包含 MediaTrans.sln 的目录
+        /// </summary>
+        private static string FindProjectRoot()
+        {
+            string dir = AppDomain.CurrentDomain.BaseDirectory;
+            // 最多向上查找 8 级
+            for (int i = 0; i < 8; i++)
+            {
+                if (dir == null)
+                {
+                    break;
+                }
+                if (File.Exists(Path.Combine(dir, "MediaTrans.sln")))
+                {
+                    return dir;
+                }
+                dir = Path.GetDirectoryName(dir);
+            }
+            return null;
         }
 
         private void BtnPasteMachineCode_Click(object sender, RoutedEventArgs e)
@@ -86,24 +190,22 @@ namespace LicenseIssuerUI
         private void BtnGenerate_Click(object sender, RoutedEventArgs e)
         {
             string machineCode = TxtMachineCode.Text.Trim();
-            string version = TxtVersion.Text.Trim();
 
-            if (string.IsNullOrEmpty(_privateKeyPath) || !File.Exists(_privateKeyPath))
+            if (string.IsNullOrEmpty(_privateKeyPem))
             {
-                SetStatus("错误：私钥文件不存在，请重新选择", isError: true);
+                SetStatus("错误：私钥未加载，请重启工具", isError: true);
                 return;
             }
 
             try
             {
-                string privateKeyPem = File.ReadAllText(_privateKeyPath, Encoding.UTF8);
-                string licenseCode = _issuerService.IssueLicense(privateKeyPem, machineCode, version);
+                string licenseCode = _issuerService.IssueLicense(_privateKeyPem, machineCode);
 
                 TxtLicenseCode.Text = licenseCode;
                 OutputSection.Visibility = Visibility.Visible;
 
-                SetStatus(string.Format("激活码已生成 — 机器码: {0}...  版本: {1}",
-                    machineCode.Length >= 8 ? machineCode.Substring(0, 8) : machineCode, version));
+                SetStatus(string.Format("激活码已生成 — 机器码: {0}...",
+                    machineCode.Length >= 8 ? machineCode.Substring(0, 8) : machineCode));
             }
             catch (Exception ex)
             {
@@ -136,6 +238,47 @@ namespace LicenseIssuerUI
         }
 
         // ==================== 内部辅助 ====================
+
+        private void BtnClearActivation_Click(object sender, RoutedEventArgs e)
+        {
+            string licenseDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MediaTrans");
+            string licensePath = Path.Combine(licenseDir, "license.dat");
+
+            if (!File.Exists(licensePath))
+            {
+                SetStatus("本机未找到激活记录");
+                MessageBox.Show("本机未找到激活记录。", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                "确定要清除本机的激活状态吗？\n\n清除后需要重新输入激活码才能使用专业版功能。",
+                "清除激活状态",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(licensePath);
+                SetStatus("已清除本机激活状态");
+                MessageBox.Show("本机激活状态已清除。\n\n用户下次启动软件时将回到免费版状态。",
+                    "清除成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                SetStatus(string.Format("清除失败：{0}", ex.Message), isError: true);
+                MessageBox.Show(string.Format("清除激活状态失败：\n\n{0}", ex.Message),
+                    "清除失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         private void ValidateMachineCode()
         {
@@ -199,11 +342,10 @@ namespace LicenseIssuerUI
                 return;
             }
 
-            bool hasKey = !string.IsNullOrEmpty(_privateKeyPath) && File.Exists(_privateKeyPath);
+            bool hasKey = !string.IsNullOrEmpty(_privateKeyPem);
             bool hasMachineCode = !string.IsNullOrEmpty(TxtMachineCode.Text.Trim());
-            bool hasVersion = !string.IsNullOrEmpty(TxtVersion.Text.Trim());
 
-            BtnGenerate.IsEnabled = hasKey && hasMachineCode && hasVersion;
+            BtnGenerate.IsEnabled = hasKey && hasMachineCode;
         }
 
         private void SetStatus(string message, bool isError = false)

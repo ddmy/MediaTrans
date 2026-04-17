@@ -62,9 +62,6 @@
                                         <SolidColorBrush Color="{StaticResource AccentSuccess}"/>
                                     </TextBlock.Foreground>
                                 </TextBlock>
-                                <TextBlock Text="{Binding ActivatedVersion, StringFormat='  (v{0})'}" 
-                                           Foreground="{DynamicResource FgMutedBrush}" 
-                                           FontSize="12" VerticalAlignment="Center"/>
                             </StackPanel>
                             <!-- 未激活 -->
                             <TextBlock Grid.Column="1" Text="免费版" FontSize="13" VerticalAlignment="Center"

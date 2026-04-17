@@ -18,6 +18,7 @@ namespace MediaTrans.ViewModels
     {
         private readonly ConfigService _configService;
         private readonly FFmpegService _ffmpegService;
+        private readonly PaywallService _paywallService;
         private NodeServiceManager _nodeService;
         private MusicApiClient _apiClient;
         private MusicDownloadService _downloadService;
@@ -48,10 +49,11 @@ namespace MediaTrans.ViewModels
         // 平台筛选
         private List<MusicSearchResult> _allResults;
 
-        public MusicSearchViewModel(ConfigService configService, FFmpegService ffmpegService)
+        public MusicSearchViewModel(ConfigService configService, FFmpegService ffmpegService, PaywallService paywallService)
         {
             _configService = configService;
             _ffmpegService = ffmpegService;
+            _paywallService = paywallService;
             _statusText = "点击搜索开始查找音乐";
             _platformStatusText = "";
             _selectedDownloadFormat = ".mp3";
@@ -653,6 +655,18 @@ namespace MediaTrans.ViewModels
 
         private void OnDownload(object parameter)
         {
+            // 未激活时禁止下载
+            if (!_paywallService.IsProfessional)
+            {
+                StatusText = "下载功能需要激活专业版";
+                MessageBox.Show(
+                    "下载功能仅限专业版用户使用。\n\n请前往「设置 → 许可证」激活专业版后再试。",
+                    "功能受限",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
             if (!_isServiceReady)
             {
                 StatusText = "音乐服务未就绪，请等待服务启动或安装 Node.js";

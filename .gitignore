@@ -28,8 +28,8 @@ Desktop.ini
 # FFmpeg binaries (tracked separately)
 lib/ffmpeg/*.exe
 
-# RSA 密钥对（私钥不入库，公钥嵌入客户端需要提交）
-keys/
+# RSA 私钥（不入库，公钥随项目提交）
+src/MediaTrans/Assets/private_key.pem
 
 # ConfuserEx 工具二进制（通过 setup-confuserex.bat 下载）
 tools/ConfuserEx/packages/

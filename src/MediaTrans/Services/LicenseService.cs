@@ -34,7 +34,6 @@ namespace MediaTrans.Services
         private string _publicKeyPem;
 
         private LicenseStatus _status;
-        private string _activatedVersion;
 
         /// <summary>
         /// 当前授权状态
@@ -50,14 +49,6 @@ namespace MediaTrans.Services
         public bool IsActivated
         {
             get { return _status == LicenseStatus.Activated; }
-        }
-
-        /// <summary>
-        /// 授权版本号
-        /// </summary>
-        public string ActivatedVersion
-        {
-            get { return _activatedVersion; }
         }
 
         /// <summary>
@@ -209,14 +200,13 @@ namespace MediaTrans.Services
             // 解析授权数据
             string licenseData = Encoding.UTF8.GetString(dataBytes);
             string[] parts = licenseData.Split('|');
-            if (parts.Length != 3 || parts[0] != LicenseDataPrefix)
+            if (parts.Length != 2 || parts[0] != LicenseDataPrefix)
             {
                 _status = LicenseStatus.Invalid;
                 return false;
             }
 
             string licenseMachineCode = parts[1];
-            string version = parts[2];
 
             // 校验机器码
             string currentMachineCode = _machineCodeService.GetMachineCode();
@@ -227,7 +217,6 @@ namespace MediaTrans.Services
             }
 
             _status = LicenseStatus.Activated;
-            _activatedVersion = version;
             return true;
         }
 

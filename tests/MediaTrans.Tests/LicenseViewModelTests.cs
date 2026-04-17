@@ -61,7 +61,7 @@ namespace MediaTrans.Tests
             var licenseService = new LicenseService(
                 _machineCodeService, _publicKeyPem, _licenseFilePath);
             var issuer = new LicenseIssuerService();
-            string code = issuer.IssueLicense(_privateKeyPem, _currentMachineCode, "1.0");
+            string code = issuer.IssueLicense(_privateKeyPem, _currentMachineCode);
             licenseService.Activate(code);
             return new LicenseViewModel(licenseService, _machineCodeService);
         }
@@ -71,7 +71,6 @@ namespace MediaTrans.Tests
         {
             var vm = CreateViewModel();
             Assert.False(vm.IsActivated);
-            Assert.Null(vm.ActivatedVersion);
         }
 
         [Fact]
@@ -94,7 +93,7 @@ namespace MediaTrans.Tests
         {
             var vm = CreateViewModel();
             var issuer = new LicenseIssuerService();
-            string code = issuer.IssueLicense(_privateKeyPem, _currentMachineCode, "1.0");
+            string code = issuer.IssueLicense(_privateKeyPem, _currentMachineCode);
 
             bool eventFired = false;
             vm.ActivationSucceeded += (s, e) => { eventFired = true; };
@@ -103,7 +102,6 @@ namespace MediaTrans.Tests
             vm.ActivateCommand.Execute(null);
 
             Assert.True(vm.IsActivated);
-            Assert.Equal("1.0", vm.ActivatedVersion);
             Assert.True(eventFired, "激活成功事件应被触发");
             Assert.Contains("成功", vm.StatusMessage);
         }
@@ -136,11 +134,10 @@ namespace MediaTrans.Tests
         }
 
         [Fact]
-        public void 已激活状态_版本号正确()
+        public void 已激活状态_属性正确()
         {
             var vm = CreateActivatedViewModel();
             Assert.True(vm.IsActivated);
-            Assert.Equal("1.0", vm.ActivatedVersion);
         }
 
         [Fact]

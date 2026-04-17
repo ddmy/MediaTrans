@@ -44,14 +44,14 @@ namespace MediaTrans.Tests
         [Fact]
         public void 签发激活码_返回非空字符串()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
             Assert.False(string.IsNullOrEmpty(code));
         }
 
         [Fact]
         public void 签发激活码_格式为Base64点Base64()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             // 格式: dataBase64.signatureBase64
             int dotIndex = code.IndexOf('.');
@@ -71,19 +71,18 @@ namespace MediaTrans.Tests
         [Fact]
         public void 签发激活码_公钥验签通过()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             var result = _issuer.VerifyLicense(_publicKeyPem, code, "MACHINE001");
 
             Assert.True(result.IsValid, string.Format("验签应通过，错误: {0}", result.ErrorMessage));
             Assert.Equal("MACHINE001", result.MachineCode);
-            Assert.Equal("1.0", result.Version);
         }
 
         [Fact]
         public void 验证_机器码不匹配_失败()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             var result = _issuer.VerifyLicense(_publicKeyPem, code, "MACHINE999");
 
@@ -94,7 +93,7 @@ namespace MediaTrans.Tests
         [Fact]
         public void 验证_篡改激活码_签名失败()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             // 篡改数据部分
             int dotIndex = code.IndexOf('.');
@@ -137,7 +136,7 @@ namespace MediaTrans.Tests
             string otherPublicKey = File.ReadAllText(
                 Path.Combine(otherDir, "public_key.pem"), Encoding.UTF8);
 
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             var result = _issuer.VerifyLicense(otherPublicKey, code, "MACHINE001");
             Assert.False(result.IsValid, "不同密钥对的公钥不应能验证签名");
@@ -146,62 +145,53 @@ namespace MediaTrans.Tests
         [Fact]
         public void 买断制_无过期时间_验证数据不含时间戳()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             // 解析数据部分，确认不含过期时间
             int dotIndex = code.IndexOf('.');
             string dataBase64 = code.Substring(0, dotIndex);
             string data = Encoding.UTF8.GetString(Convert.FromBase64String(dataBase64));
 
-            // 数据格式: MEDIATRANS_LICENSE|机器码|版本号
-            Assert.Equal("MEDIATRANS_LICENSE|MACHINE001|1.0", data);
+            // 数据格式: MEDIATRANS_LICENSE|机器码
+            Assert.Equal("MEDIATRANS_LICENSE|MACHINE001", data);
         }
 
         [Fact]
         public void 构建授权数据_格式正确()
         {
-            string data = _issuer.BuildLicenseData("ABC123", "2.0");
-            Assert.Equal("MEDIATRANS_LICENSE|ABC123|2.0", data);
+            string data = _issuer.BuildLicenseData("ABC123");
+            Assert.Equal("MEDIATRANS_LICENSE|ABC123", data);
         }
 
         [Fact]
         public void 构建授权数据_去除首尾空格()
         {
-            string data = _issuer.BuildLicenseData("  ABC123  ", "  2.0  ");
-            Assert.Equal("MEDIATRANS_LICENSE|ABC123|2.0", data);
+            string data = _issuer.BuildLicenseData("  ABC123  ");
+            Assert.Equal("MEDIATRANS_LICENSE|ABC123", data);
         }
 
         [Fact]
         public void 签发_机器码为空_抛出异常()
         {
             Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense(_privateKeyPem, null, "1.0"));
+                _issuer.IssueLicense(_privateKeyPem, null));
             Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense(_privateKeyPem, "", "1.0"));
-        }
-
-        [Fact]
-        public void 签发_版本号为空_抛出异常()
-        {
-            Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense(_privateKeyPem, "MACHINE001", null));
-            Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense(_privateKeyPem, "MACHINE001", ""));
+                _issuer.IssueLicense(_privateKeyPem, ""));
         }
 
         [Fact]
         public void 签发_私钥为空_抛出异常()
         {
             Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense(null, "MACHINE001", "1.0"));
+                _issuer.IssueLicense(null, "MACHINE001"));
             Assert.Throws<ArgumentNullException>(() =>
-                _issuer.IssueLicense("", "MACHINE001", "1.0"));
+                _issuer.IssueLicense("", "MACHINE001"));
         }
 
         [Fact]
         public void 验证_机器码不区分大小写()
         {
-            string code = _issuer.IssueLicense(_privateKeyPem, "Machine001", "1.0");
+            string code = _issuer.IssueLicense(_privateKeyPem, "Machine001");
 
             var result = _issuer.VerifyLicense(_publicKeyPem, code, "machine001");
             Assert.True(result.IsValid, "机器码比对应不区分大小写");
@@ -211,8 +201,8 @@ namespace MediaTrans.Tests
         public void 多次签发_同一机器码_激活码内容相同()
         {
             // 虽然每次签名可能因 RSA padding 不同而不同，但数据部分应相同
-            string code1 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
-            string code2 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
+            string code1 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
+            string code2 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
 
             int dot1 = code1.IndexOf('.');
             int dot2 = code2.IndexOf('.');
@@ -230,10 +220,10 @@ namespace MediaTrans.Tests
         }
 
         [Fact]
-        public void 不同版本号_生成不同激活码()
+        public void 不同机器码_生成不同激活码()
         {
-            string code1 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "1.0");
-            string code2 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001", "2.0");
+            string code1 = _issuer.IssueLicense(_privateKeyPem, "MACHINE001");
+            string code2 = _issuer.IssueLicense(_privateKeyPem, "MACHINE002");
 
             int dot1 = code1.IndexOf('.');
             int dot2 = code2.IndexOf('.');

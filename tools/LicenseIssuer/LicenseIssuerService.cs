@@ -7,8 +7,8 @@ namespace LicenseIssuer
 {
     /// <summary>
     /// 激活码签发服务
-    /// 使用 RSA 私钥对机器码 + 版本号进行签名，生成 Base64 编码的激活码
-    /// 买断制，无过期时间
+    /// 使用 RSA 私钥对机器码进行签名，生成 Base64 编码的激活码
+    /// 买断制，一次激活永久使用
     /// </summary>
     public class LicenseIssuerService
     {
@@ -21,23 +21,18 @@ namespace LicenseIssuer
 
         /// <summary>
         /// 构建待签名的授权数据
-        /// 格式: "MEDIATRANS_LICENSE|机器码|版本号"
+        /// 格式: "MEDIATRANS_LICENSE|机器码"
         /// </summary>
         /// <param name="machineCode">机器码</param>
-        /// <param name="version">授权版本号</param>
         /// <returns>待签名的数据字符串</returns>
-        public string BuildLicenseData(string machineCode, string version)
+        public string BuildLicenseData(string machineCode)
         {
             if (string.IsNullOrEmpty(machineCode))
             {
                 throw new ArgumentNullException("machineCode", "机器码不能为空");
             }
-            if (string.IsNullOrEmpty(version))
-            {
-                throw new ArgumentNullException("version", "版本号不能为空");
-            }
 
-            return string.Format("MEDIATRANS_LICENSE|{0}|{1}", machineCode.Trim(), version.Trim());
+            return string.Format("MEDIATRANS_LICENSE|{0}", machineCode.Trim());
         }
 
         /// <summary>
@@ -45,9 +40,8 @@ namespace LicenseIssuer
         /// </summary>
         /// <param name="privateKeyPem">RSA 私钥 PEM 字符串</param>
         /// <param name="machineCode">机器码</param>
-        /// <param name="version">授权版本号</param>
         /// <returns>Base64 编码的激活码</returns>
-        public string IssueLicense(string privateKeyPem, string machineCode, string version)
+        public string IssueLicense(string privateKeyPem, string machineCode)
         {
             if (string.IsNullOrEmpty(privateKeyPem))
             {
@@ -55,7 +49,7 @@ namespace LicenseIssuer
             }
 
             // 构建待签名数据
-            string licenseData = BuildLicenseData(machineCode, version);
+            string licenseData = BuildLicenseData(machineCode);
             byte[] dataBytes = Encoding.UTF8.GetBytes(licenseData);
 
             // 用私钥签名
@@ -138,14 +132,13 @@ namespace LicenseIssuer
             // 解析授权数据
             string licenseData = Encoding.UTF8.GetString(dataBytes);
             string[] parts = licenseData.Split('|');
-            if (parts.Length != 3 || parts[0] != "MEDIATRANS_LICENSE")
+            if (parts.Length != 2 || parts[0] != "MEDIATRANS_LICENSE")
             {
                 result.ErrorMessage = "授权数据格式无效";
                 return result;
             }
 
             string machineCode = parts[1];
-            string version = parts[2];
 
             // 校验机器码
             if (!string.IsNullOrEmpty(expectedMachineCode) &&
@@ -157,7 +150,6 @@ namespace LicenseIssuer
 
             result.IsValid = true;
             result.MachineCode = machineCode;
-            result.Version = version;
             return result;
         }
     }
@@ -169,7 +161,6 @@ namespace LicenseIssuer
     {
         public bool IsValid { get; set; }
         public string MachineCode { get; set; }
-        public string Version { get; set; }
         public string ErrorMessage { get; set; }
     }
 }

@@ -16,7 +16,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
+    <OutputPath>$(SolutionDir)dist\tools\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -25,7 +25,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>$(SolutionDir)dist\tools\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -61,6 +61,10 @@
     <ProjectReference Include="..\LicenseIssuer\LicenseIssuer.csproj">
       <Project>{D4E5F6A7-B8C9-0123-DEFA-234567890123}</Project>
       <Name>LicenseIssuer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\KeyGenerator\KeyGenerator.csproj">
+      <Project>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</Project>
+      <Name>KeyGenerator</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

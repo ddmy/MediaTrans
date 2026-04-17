@@ -77,7 +77,7 @@ namespace MediaTrans.Tests
         public void 激活_正确激活码_成功()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             var service = CreateService();
             bool result = service.Activate(licenseCode);
@@ -85,7 +85,6 @@ namespace MediaTrans.Tests
             Assert.True(result, "正确激活码应能激活成功");
             Assert.True(service.IsActivated);
             Assert.Equal(LicenseStatus.Activated, service.Status);
-            Assert.Equal("1.0", service.ActivatedVersion);
         }
 
         [Fact]
@@ -119,7 +118,7 @@ namespace MediaTrans.Tests
         public void 激活_篡改激活码_签名验证失败()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             // 篡改数据部分
             string tampered = "AAAA" + licenseCode.Substring(4);
@@ -135,7 +134,7 @@ namespace MediaTrans.Tests
         {
             string fakeMachineCode = "AAAA1111BBBB2222CCCC3333DDDD4444EEEE5555FFFF6666AAAA7777BBBB8888";
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, fakeMachineCode, "1.0");
+                _privateKeyPem, fakeMachineCode);
 
             var service = CreateService();
             bool result = service.Activate(licenseCode);
@@ -147,7 +146,7 @@ namespace MediaTrans.Tests
         public void 激活后_重启校验_授权状态保持()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             // 首次激活
             var service1 = CreateService();
@@ -159,14 +158,13 @@ namespace MediaTrans.Tests
             bool result = service2.CheckOnStartup();
             Assert.True(result, "重启后授权状态应保持");
             Assert.True(service2.IsActivated);
-            Assert.Equal("1.0", service2.ActivatedVersion);
         }
 
         [Fact]
         public void 激活后_授权文件存在()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             var service = CreateService();
             service.Activate(licenseCode);
@@ -178,7 +176,7 @@ namespace MediaTrans.Tests
         public void 授权文件被删除_重启后变为未激活()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             var service1 = CreateService();
             service1.Activate(licenseCode);
@@ -195,7 +193,7 @@ namespace MediaTrans.Tests
         public void 授权文件被篡改_重启后验证失败()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             var service1 = CreateService();
             service1.Activate(licenseCode);
@@ -219,7 +217,7 @@ namespace MediaTrans.Tests
 
             // 用另一对密钥签发
             string licenseCode = _issuer.IssueLicense(
-                otherPrivateKey, _currentMachineCode, "1.0");
+                otherPrivateKey, _currentMachineCode);
 
             // 用原来的公钥验证
             var service = CreateService();
@@ -238,7 +236,7 @@ namespace MediaTrans.Tests
         public void 激活码含空格_自动裁剪()
         {
             string licenseCode = _issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
 
             var service = CreateService();
             bool result = service.Activate("  " + licenseCode + "  ");

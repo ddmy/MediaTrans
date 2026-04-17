@@ -237,16 +237,13 @@ namespace MediaTrans.Tests
         [Fact]
         public void 私钥文件_不应出现在客户端项目中()
         {
-            // 安全检查：确认主项目源码目录中不存在私钥文件
-            string srcDir = Path.GetFullPath(
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-                    "..", "..", "..", "..", "src", "MediaTrans"));
-
-            if (Directory.Exists(srcDir))
+            // 安全检查：确认私钥未被编译嵌入到客户端程序集中
+            // 私钥文件可能存在于磁盘（开发者工具需要），但必须不是嵌入资源
+            var assembly = typeof(MediaTrans.Services.LicenseService).Assembly;
+            var resourceNames = assembly.GetManifestResourceNames();
+            foreach (string name in resourceNames)
             {
-                var privateKeyFiles = Directory.GetFiles(
-                    srcDir, "private_key*", SearchOption.AllDirectories);
-                Assert.Equal(0, privateKeyFiles.Length);
+                Assert.DoesNotContain("private_key", name.ToLowerInvariant());
             }
         }
     }

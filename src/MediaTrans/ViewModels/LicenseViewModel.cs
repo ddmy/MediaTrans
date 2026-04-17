@@ -17,7 +17,6 @@ namespace MediaTrans.ViewModels
         private string _machineCode;
         private string _statusMessage;
         private bool _isActivated;
-        private string _activatedVersion;
         private bool _isActivating;
 
         public LicenseViewModel(LicenseService licenseService, MachineCodeService machineCodeService)
@@ -92,15 +91,6 @@ namespace MediaTrans.ViewModels
         {
             get { return _isActivated; }
             private set { SetProperty(ref _isActivated, value, "IsActivated"); }
-        }
-
-        /// <summary>
-        /// 已激活的版本号
-        /// </summary>
-        public string ActivatedVersion
-        {
-            get { return _activatedVersion; }
-            private set { SetProperty(ref _activatedVersion, value, "ActivatedVersion"); }
         }
 
         /// <summary>
@@ -198,7 +188,6 @@ namespace MediaTrans.ViewModels
         private void RefreshLicenseStatus()
         {
             IsActivated = _licenseService.IsActivated;
-            ActivatedVersion = _licenseService.ActivatedVersion;
         }
     }
 }

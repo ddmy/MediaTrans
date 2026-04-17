@@ -342,7 +342,7 @@ namespace MediaTrans.ViewModels
             SwitchToAudioToolCommand = new RelayCommand(o => { IsAudioToolMode = true; });
             AddToSpliceCommand = new RelayCommand(OnAddToSplice, o => _isSpliceMode && _selectedFile != null);
             SwitchToMusicSearchCommand = new RelayCommand(OnSwitchToMusicSearch);
-            MusicSearchVm = new MusicSearchViewModel(_configService, _ffmpegService);
+            MusicSearchVm = new MusicSearchViewModel(_configService, _ffmpegService, _paywallService);
             _conversionService.ProgressChanged += OnConversionProgressChanged;
         }
 

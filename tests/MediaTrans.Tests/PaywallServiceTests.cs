@@ -81,7 +81,7 @@ namespace MediaTrans.Tests
             // 激活
             var issuer = new LicenseIssuerService();
             string licenseCode = issuer.IssueLicense(
-                _privateKeyPem, _currentMachineCode, "1.0");
+                _privateKeyPem, _currentMachineCode);
             licenseService.Activate(licenseCode);
 
             return new PaywallService(licenseService, configService);

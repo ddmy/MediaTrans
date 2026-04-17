@@ -141,7 +141,7 @@
                     <TextBlock Text="MediaTrans 激活码签发工具"
                                Foreground="{StaticResource FgPrimary}"
                                FontSize="14" FontWeight="SemiBold"/>
-                    <TextBlock Text="仅供开发者本地使用，请妥善保管私钥文件"
+                    <TextBlock Text="仅供开发者本地使用，密钥自动从项目目录加载"
                                Foreground="{StaticResource FgSecondary}"
                                FontSize="11"/>
                 </StackPanel>
@@ -152,31 +152,15 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,20,24,20">
 
-                <!-- 私钥文件 -->
+                <!-- 密钥状态 -->
                 <Border Background="{StaticResource BgSurface}" CornerRadius="6"
                         Padding="16,14" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="① 私钥文件" Style="{StaticResource FieldLabel}"
+                        <TextBlock Text="① 密钥状态" Style="{StaticResource FieldLabel}"
                                    FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
-                        <TextBlock Text="选择 private_key.pem 文件（由 KeyGenerator 工具生成）"
-                                   Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="TxtKeyPath"
-                                     Grid.Column="0"
-                                     Style="{StaticResource DarkTextBox}"
-                                     IsReadOnly="True"
-                                     Text="{Binding ElementName=TxtKeyPath, Path=Tag, Mode=OneWay}"
-                                     Tag=""
-                                     Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" Content="浏览..."
-                                    Style="{StaticResource GhostButton}"
-                                    Padding="14,6"
-                                    Click="BtnBrowseKey_Click"/>
-                        </Grid>
+                        <TextBlock x:Name="TxtKeyStatus"
+                                   Style="{StaticResource FieldLabel}" Margin="0,0,0,0"
+                                   Text="正在检测..."/>
                     </StackPanel>
                 </Border>
 
@@ -208,23 +192,6 @@
                         <TextBlock x:Name="TxtMachineCodeHint"
                                    Foreground="#E09040" FontSize="11"
                                    Margin="0,5,0,0" Visibility="Collapsed"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- 版本号 -->
-                <Border Background="{StaticResource BgSurface}" CornerRadius="6"
-                        Padding="16,14" Margin="0,0,0,16">
-                    <StackPanel>
-                        <TextBlock Text="③ 授权版本号" Style="{StaticResource FieldLabel}"
-                                   FontWeight="SemiBold" Foreground="{StaticResource Accent}"/>
-                        <TextBlock Text="用于标识授权版本，通常填 1.0"
-                                   Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
-                        <TextBox x:Name="TxtVersion"
-                                 Style="{StaticResource DarkTextBox}"
-                                 Text="1.0"
-                                 Width="120"
-                                 HorizontalAlignment="Left"
-                                 TextChanged="TxtInput_TextChanged"/>
                     </StackPanel>
                 </Border>
 
@@ -279,12 +246,25 @@
         <!-- ===== 状态栏 ===== -->
         <Border Grid.Row="2" Background="#141625"
                 BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
-            <TextBlock x:Name="TxtStatus"
-                       Foreground="{StaticResource FgSecondary}"
-                       FontSize="11"
-                       VerticalAlignment="Center"
-                       Margin="16,0"
-                       Text="就绪 — 请先选择私钥文件"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatus"
+                           Grid.Column="0"
+                           Foreground="{StaticResource FgSecondary}"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Margin="16,0"
+                           Text="正在初始化..."/>
+                <Button Grid.Column="1" Content="清除本机激活状态"
+                        Style="{StaticResource GhostButton}"
+                        Padding="10,3" Margin="0,4,16,4"
+                        FontSize="11"
+                        Foreground="{StaticResource Danger}"
+                        Click="BtnClearActivation_Click"/>
+            </Grid>
         </Border>
     </Grid>
 </Window>
