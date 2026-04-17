@@ -555,17 +555,8 @@
                                                     BorderThickness="1" Margin="0,0,0,4" ClipToBounds="True"
                                                     MouseLeftButtonDown="WaveformBorder_MouseLeftButtonDown"
                                                     MouseMove="WaveformBorder_MouseMove"
-                                                    MouseLeftButtonUp="WaveformBorder_MouseLeftButtonUp">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Cursor" Value="Hand"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding EditorVm.IsAudioReady}" Value="False">
-                                                                <Setter Property="Cursor" Value="Arrow"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
+                                                    MouseLeftButtonUp="WaveformBorder_MouseLeftButtonUp"
+                                                    Cursor="Hand">
                                                 <!-- 波形图叠加层 -->
                                                 <Grid x:Name="WaveformGrid">
                                                     <!-- 无波形时的提示 -->
@@ -628,6 +619,14 @@
                                                             </MultiBinding>
                                                         </Border.Margin>
                                                     </Border>
+                                                    <!-- 拖拽时间提示气泡 -->
+                                                    <Border x:Name="DragTooltip" Visibility="Collapsed"
+                                                            Background="#CC000000" CornerRadius="3" Padding="4,2"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                            Margin="0,0,0,4" IsHitTestVisible="False">
+                                                        <TextBlock x:Name="DragTooltipText" Foreground="White"
+                                                                   FontSize="10" FontFamily="Consolas"/>
+                                                    </Border>
                                                 </Grid>
                                             </Border>
 
@@ -651,7 +650,12 @@
                                                     <Button Content="⏹ 停止"
                                                             Style="{StaticResource DarkButton}"
                                                             Command="{Binding EditorVm.StopCommand}"
-                                                            Padding="10,4" FontSize="12"/>
+                                                            Padding="10,4" Margin="0,0,6,0" FontSize="12"/>
+                                                    <Button Content="▶ 播放选区"
+                                                            Style="{StaticResource DarkButton}"
+                                                            Command="{Binding EditorVm.PlaySelectionCommand}"
+                                                            Padding="10,4" FontSize="12"
+                                                            ToolTip="播放裁剪选区范围，到达终点自动停止"/>
                                                 </StackPanel>
                                             </Grid>
 

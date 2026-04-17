@@ -16,7 +16,8 @@ namespace MediaTrans.Views
     public partial class MainWindow : Window
     {
         private ShortcutService _shortcutService;
-        private bool _isDraggingWaveform;
+        // 拖拽模式：0=None, 1=DragTrimStart, 2=DragTrimEnd, 3=SeekPlayhead
+        private int _dragMode;
 
         public MainWindow()
         {
@@ -149,29 +150,64 @@ namespace MediaTrans.Views
         }
 
         /// <summary>
-        /// 波形区域鼠标按下 — 开始拖拽或单击定位
+        /// 波形区域鼠标按下 — 判断拖拽模式（裁剪标记 or 定位播放）
         /// </summary>
         private void WaveformBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             var border = sender as System.Windows.Controls.Border;
             if (border == null) return;
 
-            _isDraggingWaveform = true;
+            var pos = e.GetPosition(border);
+            _dragMode = DetectDragMode(border, pos);
+
+            // 选区播放中禁止拖拽裁剪标记
+            var vm = DataContext as MainViewModel;
+            if (vm != null && vm.EditorVm != null && vm.EditorVm.IsPlayingSelection
+                && (_dragMode == 1 || _dragMode == 2))
+            {
+                _dragMode = 0;
+                return;
+            }
+
             border.CaptureMouse();
-            SeekWaveformAtPosition(border, e.GetPosition(border));
+
+            if (_dragMode == 3)
+            {
+                SeekWaveformAtPosition(border, pos);
+            }
+            else
+            {
+                ApplyDragAtPosition(border, pos);
+            }
         }
 
         /// <summary>
-        /// 波形区域鼠标移动 — 拖拽进度
+        /// 波形区域鼠标移动 — 根据拖拽模式分派操作，无拖拽时切换光标
         /// </summary>
         private void WaveformBorder_MouseMove(object sender, MouseEventArgs e)
         {
-            if (!_isDraggingWaveform) return;
             var border = sender as System.Windows.Controls.Border;
             if (border == null) return;
-            if (e.LeftButton == MouseButtonState.Pressed)
+            var pos = e.GetPosition(border);
+
+            if (_dragMode != 0 && e.LeftButton == MouseButtonState.Pressed)
             {
-                SeekWaveformAtPosition(border, e.GetPosition(border));
+                if (_dragMode == 3)
+                {
+                    SeekWaveformAtPosition(border, pos);
+                }
+                else
+                {
+                    ApplyDragAtPosition(border, pos);
+                }
+            }
+            else if (_dragMode == 0)
+            {
+                // 更新鼠标光标（靠近标记线时变为水平调整光标，选区播放中不显示）
+                var vm2 = DataContext as MainViewModel;
+                bool selPlaying = vm2 != null && vm2.EditorVm != null && vm2.EditorVm.IsPlayingSelection;
+                int mode = DetectDragMode(border, pos);
+                border.Cursor = (!selPlaying && (mode == 1 || mode == 2)) ? Cursors.SizeWE : Cursors.Hand;
             }
         }
 
@@ -182,9 +218,85 @@ namespace MediaTrans.Views
         {
             var border = sender as System.Windows.Controls.Border;
             if (border == null) return;
-            _isDraggingWaveform = false;
+
+            if (_dragMode == 3)
+            {
+                SeekWaveformAtPosition(border, e.GetPosition(border));
+            }
+
+            _dragMode = 0;
             border.ReleaseMouseCapture();
-            SeekWaveformAtPosition(border, e.GetPosition(border));
+            border.Cursor = Cursors.Hand;
+            DragTooltip.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 判断鼠标位置应触发何种拖拽模式：1=起始标记, 2=结束标记, 3=定位播放
+        /// </summary>
+        private int DetectDragMode(System.Windows.Controls.Border border, Point position)
+        {
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null) return 3;
+
+            double width = border.ActualWidth;
+            if (width <= 0) return 3;
+
+            double startX = (vm.EditorVm.TrimStartPercent / 100.0) * width;
+            double endX = (vm.EditorVm.TrimEndPercent / 100.0) * width;
+            double mouseX = position.X;
+            double hitThreshold = 6.0;
+
+            if (Math.Abs(mouseX - endX) <= hitThreshold)
+                return 2;
+            if (Math.Abs(mouseX - startX) <= hitThreshold)
+                return 1;
+
+            return 3;
+        }
+
+        /// <summary>
+        /// 执行裁剪标记拖拽操作并更新时间提示
+        /// </summary>
+        private void ApplyDragAtPosition(System.Windows.Controls.Border border, Point position)
+        {
+            double width = border.ActualWidth;
+            if (width <= 0) return;
+
+            double ratio = position.X / width;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null) return;
+
+            if (_dragMode == 1)
+            {
+                vm.EditorVm.SetTrimStartFromRatio(ratio);
+                ShowDragTooltip(position.X, width, vm.EditorVm.TrimStartText);
+                border.Cursor = Cursors.SizeWE;
+            }
+            else if (_dragMode == 2)
+            {
+                vm.EditorVm.SetTrimEndFromRatio(ratio);
+                ShowDragTooltip(position.X, width, vm.EditorVm.TrimEndText);
+                border.Cursor = Cursors.SizeWE;
+            }
+        }
+
+        /// <summary>
+        /// 显示拖拽时间提示气泡
+        /// </summary>
+        private void ShowDragTooltip(double mouseX, double containerWidth, string timeText)
+        {
+            DragTooltipText.Text = timeText;
+            DragTooltip.Visibility = Visibility.Visible;
+            // 居中于鼠标位置，避免超出边界
+            DragTooltip.UpdateLayout();
+            double tooltipWidth = DragTooltip.ActualWidth > 0 ? DragTooltip.ActualWidth : 80;
+            double left = mouseX - tooltipWidth / 2;
+            if (left < 0) left = 0;
+            if (left + tooltipWidth > containerWidth) left = containerWidth - tooltipWidth;
+            DragTooltip.Margin = new Thickness(left, 0, 0, 4);
         }
 
         /// <summary>

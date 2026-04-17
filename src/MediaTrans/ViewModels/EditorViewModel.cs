@@ -35,6 +35,16 @@ namespace MediaTrans.ViewModels
         private string _selectedFormat = ".mp3";
         private CancellationTokenSource _exportCts;
         private System.Threading.Timer _playbackTimer;
+        private bool _isPlayingSelection;
+        private double _selectionPlayEndSeconds;
+
+        /// <summary>
+        /// 是否正在播放选区（供 UI 禁用选区操作）
+        /// </summary>
+        public bool IsPlayingSelection
+        {
+            get { return _isPlayingSelection; }
+        }
 
         private readonly FFmpegService _ffmpegService;
         private readonly EditExportService _editExportService;
@@ -373,6 +383,8 @@ namespace MediaTrans.ViewModels
         public RelayCommand MoveSpliceUpCommand { get; private set; }
         /// <summary>拼接文件下移命令</summary>
         public RelayCommand MoveSpliceDownCommand { get; private set; }
+        /// <summary>播放选区命令</summary>
+        public RelayCommand PlaySelectionCommand { get; private set; }
 
         /// <summary>
         /// 构造函数
@@ -420,6 +432,7 @@ namespace MediaTrans.ViewModels
             SpliceExportCommand = new RelayCommand(OnSpliceExport, CanSpliceExport);
             MoveSpliceUpCommand = new RelayCommand(OnMoveSpliceUp);
             MoveSpliceDownCommand = new RelayCommand(OnMoveSpliceDown);
+            PlaySelectionCommand = new RelayCommand(OnPlaySelection, o => _currentFile != null && _audioReady);
         }
 
         /// <summary>
@@ -650,6 +663,30 @@ namespace MediaTrans.ViewModels
         // ===== 播放控制 =====
 
         /// <summary>
+        /// 通过进度比例设置裁剪起始点，供波形拖拽调用
+        /// </summary>
+        public void SetTrimStartFromRatio(double ratio)
+        {
+            if (_currentFile == null) return;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+            double seconds = _currentFile.DurationSeconds * ratio;
+            TrimStartText = SecondsToTimeText(seconds);
+        }
+
+        /// <summary>
+        /// 通过进度比例设置裁剪结束点，供波形拖拽调用
+        /// </summary>
+        public void SetTrimEndFromRatio(double ratio)
+        {
+            if (_currentFile == null) return;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+            double seconds = _currentFile.DurationSeconds * ratio;
+            TrimEndText = SecondsToTimeText(seconds);
+        }
+
+        /// <summary>
         /// 通过进度比例（0.0‑1.0）跳转到对应时间点，供波形点击/拖拽调用
         /// </summary>
         public void SeekToRatio(double ratio)
@@ -681,6 +718,8 @@ namespace MediaTrans.ViewModels
         private void OnPlayPause(object parameter)
         {
             if (_currentFile == null) return;
+            _isPlayingSelection = false;
+            OnPropertyChanged("IsPlayingSelection");
 
             if (_isPlaying)
             {
@@ -713,6 +752,8 @@ namespace MediaTrans.ViewModels
 
         private void StopPlayback()
         {
+            _isPlayingSelection = false;
+            OnPropertyChanged("IsPlayingSelection");
             if (_isPlaying || _playbackService.State != PlaybackState.Stopped)
             {
                 _playbackService.Stop();
@@ -725,6 +766,11 @@ namespace MediaTrans.ViewModels
 
         private void OnPlaybackStopped(object sender, EventArgs e)
         {
+            _isPlayingSelection = false;
+            Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                OnPropertyChanged("IsPlayingSelection");
+            }));
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 IsPlaying = false;
@@ -756,6 +802,28 @@ namespace MediaTrans.ViewModels
                 double pos = _playbackService.CurrentPositionSeconds;
                 double dur = _currentFile != null ? _currentFile.DurationSeconds : 0;
                 double progress = dur > 0 ? pos / dur : 0;
+
+                if (_isPlayingSelection && pos >= _selectionPlayEndSeconds)
+                {
+                    _isPlayingSelection = false;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        OnPropertyChanged("IsPlayingSelection");
+                    }));
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _playbackService.Pause();
+                        IsPlaying = false;
+                        StopPlaybackTimer();
+                        double startSec;
+                        if (TryParseTimeText(TrimStartText, out startSec) && dur > 0)
+                        {
+                            SeekToRatio(startSec / dur);
+                        }
+                        StatusText = "选区播放完成";
+                    }));
+                    return;
+                }
 
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -942,6 +1010,38 @@ namespace MediaTrans.ViewModels
             if (_currentFile != null)
             {
                 TrimEndText = SecondsToTimeText(_currentFile.DurationSeconds);
+            }
+        }
+
+        private void OnPlaySelection(object parameter)
+        {
+            if (_currentFile == null || !_audioReady) return;
+
+            double startSec;
+            if (!TryParseTimeText(TrimStartText, out startSec)) return;
+            double endSec;
+            if (!TryParseTimeText(TrimEndText, out endSec)) return;
+            if (endSec <= startSec) return;
+
+            _isPlayingSelection = true;
+            _selectionPlayEndSeconds = endSec;
+            OnPropertyChanged("IsPlayingSelection");
+
+            try
+            {
+                // 先 Play() 再 Seek，避免 Play() 在 Stopped 状态下把 Position 重置为 0
+                _playbackService.Play();
+                double ratio = startSec / _currentFile.DurationSeconds;
+                SeekToRatio(ratio);
+                IsPlaying = true;
+                StartPlaybackTimer();
+                StatusText = string.Format("播放选区: {0} → {1}", TrimStartText, TrimEndText);
+            }
+            catch (Exception ex)
+            {
+                StatusText = string.Format("播放失败: {0}", ex.Message);
+                _isPlayingSelection = false;
+                OnPropertyChanged("IsPlayingSelection");
             }
         }
 
