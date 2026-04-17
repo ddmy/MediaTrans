@@ -404,7 +404,7 @@ namespace MediaTrans.Tests
             string outputDir = Path.Combine(_tempDir, "output_subdir");
             _config.DefaultOutputDir = outputDir;
 
-            var configService = new ConfigService();
+            var configService = new ConfigService(Path.Combine(_tempDir, "AppConfig.json"));
             configService.Save(_config);
 
             var cs = new ConversionService(new FFmpegService(_config), configService);
@@ -420,7 +420,7 @@ namespace MediaTrans.Tests
             string outputDir = _tempDir;
             _config.DefaultOutputDir = outputDir;
 
-            var configService = new ConfigService();
+            var configService = new ConfigService(Path.Combine(_tempDir, "AppConfig.json"));
             configService.Save(_config);
 
             // 创建一个已存在的同名文件

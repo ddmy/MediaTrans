@@ -24,7 +24,6 @@ namespace MediaTrans.ViewModels
         private string _trimStartText = "00:00:00.000";
         private string _trimEndText = "00:00:00.000";
         private string _statusText = "请在文件列表中选择文件";
-        private bool _isLoaded;
         private bool _isPlaying;
         private bool _isExporting;
         private bool _audioReady;
@@ -434,7 +433,6 @@ namespace MediaTrans.ViewModels
             StopPlayback();
 
             CurrentFile = file;
-            _isLoaded = false;
 
             // 重置时间
             TrimStartText = "00:00:00.000";
@@ -494,7 +492,6 @@ namespace MediaTrans.ViewModels
                 {
                     _peakMin = peakMin;
                     _peakMax = peakMax;
-                    _isLoaded = true;
 
                     if (peakMin != null && peakMin.Length > 0)
                     {

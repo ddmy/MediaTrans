@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>&1
 REM ============================================================
 REM  MediaTrans 一键构建流水线
 REM  流程: MSBuild Release → xUnit 测试 → ConfuserEx 混淆 → Inno Setup 打包
@@ -120,13 +121,13 @@ if %SKIP_TEST% EQU 1 (
     echo [步骤 2/4] xUnit 测试...
     REM 先编译 Debug 用于测试
     "%MSBUILD%" "%PROJECT_ROOT%MediaTrans.sln" -t:Build -p:Configuration=Debug -v:minimal -nologo
-    if %ERRORLEVEL% NEQ 0 (
+    if !ERRORLEVEL! NEQ 0 (
         echo [错误] Debug 编译失败！
         exit /b 1
     )
 
     "%XUNIT_RUNNER%" "%PROJECT_ROOT%tests\MediaTrans.Tests\bin\Debug\MediaTrans.Tests.dll" -nologo
-    if %ERRORLEVEL% NEQ 0 (
+    if !ERRORLEVEL! NEQ 0 (
         echo [错误] 测试失败！请修复后重试。
         exit /b 1
     )
@@ -166,6 +167,7 @@ if %SKIP_CONFUSE% EQU 1 (
         )
         echo [成功] 混淆完成
     )
+    )
 )
 echo.
 
@@ -193,7 +195,7 @@ if %SKIP_INSTALLER% EQU 1 (
             "%ISCC%" "%PROJECT_ROOT%installer\MediaTrans.iss"
         )
         
-        if %ERRORLEVEL% NEQ 0 (
+        if !ERRORLEVEL! NEQ 0 (
             echo [错误] 安装包生成失败！
             exit /b 1
         )
