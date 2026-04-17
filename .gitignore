@@ -37,5 +37,8 @@ tools/ConfuserEx/packages/
 # 混淆输出
 src/MediaTrans/bin/Confused/
 
+# 第三方依赖
+node_modules/
+
 # 安装包输出
 dist/

@@ -101,6 +101,15 @@ Source: "{#FFmpegDir}\ffmpeg.exe"; DestDir: "{app}\lib\ffmpeg"; Flags: ignorever
 Source: "{#FFmpegDir}\ffprobe.exe"; DestDir: "{app}\lib\ffmpeg"; Flags: ignoreversion
 #endif
 
+; 音乐搜索服务（不含 node_modules，首次使用时自动安装依赖）
+#define MusicServerDir ProjectRoot + "lib\music-server"
+Source: "{#MusicServerDir}\server.js"; DestDir: "{app}\lib\music-server"; Flags: ignoreversion
+Source: "{#MusicServerDir}\router.js"; DestDir: "{app}\lib\music-server"; Flags: ignoreversion
+Source: "{#MusicServerDir}\package.json"; DestDir: "{app}\lib\music-server"; Flags: ignoreversion
+Source: "{#MusicServerDir}\providers\*"; DestDir: "{app}\lib\music-server\providers"; Flags: ignoreversion recursesubdirs
+Source: "{#MusicServerDir}\services\*"; DestDir: "{app}\lib\music-server\services"; Flags: ignoreversion recursesubdirs
+Source: "{#MusicServerDir}\utils\*"; DestDir: "{app}\lib\music-server\utils"; Flags: ignoreversion recursesubdirs
+
 [Icons]
 ; 开始菜单
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

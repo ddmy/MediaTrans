@@ -244,6 +244,7 @@
                                                         <MultiDataTrigger.Conditions>
                                                             <Condition Binding="{Binding IsEditorMode}" Value="False"/>
                                                             <Condition Binding="{Binding IsSpliceMode}" Value="False"/>
+                                                            <Condition Binding="{Binding IsMusicSearchMode}" Value="False"/>
                                                         </MultiDataTrigger.Conditions>
                                                         <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
                                                         <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
@@ -278,6 +279,19 @@
                                             </Style>
                                         </Button.Style>
                                     </Button>
+                                    <Button Content="🔍 搜索" FontSize="12" Margin="2,0,0,0"
+                                            Command="{Binding SwitchToMusicSearchCommand}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource TabButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMusicSearchMode}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
                                 </StackPanel>
                             </Border>
 
@@ -291,6 +305,9 @@
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSpliceMode}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsMusicSearchMode}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -882,6 +899,245 @@
                                                FontSize="11" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </ScrollViewer>
+
+                            <!-- 音乐搜索模式面板 -->
+                            <Grid Grid.Row="1"
+                                  Visibility="{Binding IsMusicSearchMode, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- 搜索栏 -->
+                                <Border Grid.Row="0" Padding="12,8"
+                                        Background="{DynamicResource BgMediumBrush}"
+                                        BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 Style="{StaticResource TimeInputBox}"
+                                                 Text="{Binding MusicSearchVm.SearchKeyword, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontSize="13" Padding="6,4"
+                                                 ToolTip="输入歌名、歌手或关键词，回车搜索"
+                                                 KeyDown="MusicSearchBox_KeyDown"/>
+                                        <Button Grid.Column="1" Content="搜索"
+                                                Style="{StaticResource AccentButton}"
+                                                Command="{Binding MusicSearchVm.SearchCommand}"
+                                                Padding="14,4" Margin="6,0,0,0" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- 平台筛选栏 -->
+                                <Border Grid.Row="1" Padding="12,4"
+                                        Background="{DynamicResource BgDarkBrush}">
+                                    <ItemsControl ItemsSource="{Binding MusicSearchVm.PlatformFilters}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <ToggleButton IsChecked="{Binding IsChecked}"
+                                                              Content="{Binding DisplayText}"
+                                                              Margin="0,0,6,0" Padding="6,2"
+                                                              FontSize="11" Cursor="Hand">
+                                                    <ToggleButton.Style>
+                                                        <Style TargetType="ToggleButton">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource FgMutedBrush}"/>
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
+                                                            <Setter Property="BorderThickness" Value="1"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ToggleButton">
+                                                                        <Border Background="{TemplateBinding Background}"
+                                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                CornerRadius="3"
+                                                                                Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                                              VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsChecked" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                                    <Setter Property="Foreground" Value="White"/>
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsChecked" Value="False">
+                                                                    <Setter Property="Background" Value="Transparent"/>
+                                                                    <Setter Property="Foreground" Value="{DynamicResource FgMutedBrush}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Opacity" Value="0.85"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ToggleButton.Style>
+                                                </ToggleButton>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+
+                                <!-- 搜索结果列表 -->
+                                <ListBox Grid.Row="2" Style="{StaticResource DarkListBox}"
+                                         BorderThickness="0"
+                                         Background="{DynamicResource BgDarkestBrush}"
+                                         ItemsSource="{Binding MusicSearchVm.Results}"
+                                         SelectedItem="{Binding MusicSearchVm.SelectedResult}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         MouseDoubleClick="MusicResultList_MouseDoubleClick"
+                                         x:Name="MusicResultListBox"
+                                         Tag="{Binding}">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                            <Setter Property="ContextMenu">
+                                                <Setter.Value>
+                                                    <ContextMenu Style="{StaticResource DarkContextMenu}"
+                                                                 DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                                        <MenuItem Header="▶ 试听" Style="{StaticResource DarkMenuItem}"
+                                                                  Command="{Binding MusicSearchVm.PlayItemCommand}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                        <Separator Style="{StaticResource DarkMenuSeparator}"/>
+                                                        <MenuItem Header="⬇ 下载" Style="{StaticResource DarkMenuItem}"
+                                                                  Command="{Binding MusicSearchVm.DownloadItemCommand}"
+                                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    </ContextMenu>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="8,4">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <!-- 歌名 -->
+                                                <TextBlock Grid.Row="0"
+                                                           Text="{Binding SongName}"
+                                                           Foreground="{DynamicResource FgPrimaryBrush}"
+                                                           FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                                <!-- 歌手 + 平台选择 + 时长（同一行） -->
+                                                <DockPanel Grid.Row="1" Margin="0,2,0,0">
+                                                    <!-- 时长（右侧） -->
+                                                    <TextBlock DockPanel.Dock="Right"
+                                                               Text="{Binding DurationText}"
+                                                               Foreground="{DynamicResource FgSecondaryBrush}"
+                                                               FontSize="11" FontFamily="Consolas, Courier New"
+                                                               VerticalAlignment="Center"
+                                                               Margin="8,0,0,0"/>
+                                                    <!-- 歌手 + 平台（左侧） -->
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock FontSize="11"
+                                                                   Foreground="{DynamicResource FgSecondaryBrush}">
+                                                            <Run Text="{Binding Artist, Mode=OneWay}"/>
+                                                            <Run Text=" · "/>
+                                                        </TextBlock>
+                                                        <!-- 多源：下拉切换平台 -->
+                                                        <ComboBox ItemsSource="{Binding Sources}"
+                                                                  SelectedItem="{Binding SelectedSource}"
+                                                                  DisplayMemberPath="PlatformName"
+                                                                  FontSize="11" Padding="2,0"
+                                                                  MinWidth="70" MaxWidth="120"
+                                                                  VerticalAlignment="Center"
+                                                                  Style="{StaticResource DarkComboBox}"
+                                                                  Visibility="{Binding HasMultipleSources, Converter={StaticResource BoolToVisibility}}"/>
+                                                        <!-- 单源：纯文本 -->
+                                                        <TextBlock FontSize="11"
+                                                                   Foreground="{DynamicResource FgSecondaryBrush}"
+                                                                   Text="{Binding AvailablePlatformsText}"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding HasMultipleSources, Converter={StaticResource BoolToVisibilityInverse}}"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <!-- 底部操作栏 -->
+                                <Border Grid.Row="3" Padding="12,8"
+                                        Background="{DynamicResource BgMediumBrush}"
+                                        BorderBrush="{DynamicResource BorderDefaultBrush}" BorderThickness="0,1,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- 播放按钮 -->
+                                        <Button Grid.Column="0" Content="▶ 试听"
+                                                Style="{StaticResource AccentButton}"
+                                                Command="{Binding MusicSearchVm.PlayCommand}"
+                                                Padding="10,4" Margin="0,0,4,0" FontSize="12"/>
+                                        <Button Grid.Column="1" Content="⏹ 停止"
+                                                Style="{StaticResource DarkButton}"
+                                                Command="{Binding MusicSearchVm.StopPlayCommand}"
+                                                Padding="8,4" Margin="0,0,4,0" FontSize="12"
+                                                Visibility="{Binding MusicSearchVm.IsPlaying, Converter={StaticResource BoolToVisibility}}"/>
+                                        <!-- 播放进度 -->
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding MusicSearchVm.PlaybackPositionText}"
+                                                   Foreground="{DynamicResource FgSecondaryBrush}"
+                                                   FontSize="11" FontFamily="Consolas, Courier New"
+                                                   VerticalAlignment="Center" Margin="0,0,4,0"
+                                                   Visibility="{Binding MusicSearchVm.IsPlaying, Converter={StaticResource BoolToVisibility}}"/>
+                                        <ProgressBar Grid.Column="3" Width="80" Height="8" Margin="0,0,8,0"
+                                                     Minimum="0" Maximum="100"
+                                                     Value="{Binding MusicSearchVm.PlaybackProgress, Mode=OneWay}"
+                                                     Visibility="{Binding MusicSearchVm.IsPlaying, Converter={StaticResource BoolToVisibility}}"/>
+                                        <!-- 下载格式 -->
+                                        <ComboBox Grid.Column="4"
+                                                  Style="{StaticResource DarkComboBox}"
+                                                  ItemsSource="{Binding MusicSearchVm.DownloadFormats}"
+                                                  SelectedItem="{Binding MusicSearchVm.SelectedDownloadFormat}"
+                                                  FontSize="12" Width="70" Margin="0,0,4,0"/>
+                                        <!-- 状态文本 -->
+                                        <TextBlock Grid.Column="5"
+                                                   Text="{Binding MusicSearchVm.StatusText}"
+                                                   Foreground="{DynamicResource FgMutedBrush}"
+                                                   FontSize="11" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" Margin="4,0"/>
+                                        <!-- 下载进度 -->
+                                        <ProgressBar Grid.Column="6" Width="80" Height="12" Margin="4,0"
+                                                     Minimum="0" Maximum="100"
+                                                     Value="{Binding MusicSearchVm.DownloadProgress, Mode=OneWay}">
+                                            <ProgressBar.Style>
+                                                <Style TargetType="ProgressBar">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding MusicSearchVm.IsDownloading}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ProgressBar.Style>
+                                        </ProgressBar>
+                                        <!-- 下载按钮 -->
+                                        <Button Grid.Column="7" Content="⬇ 下载"
+                                                Style="{StaticResource DarkButton}"
+                                                Command="{Binding MusicSearchVm.DownloadCommand}"
+                                                Padding="10,4" FontSize="12"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
 
                         </Grid>
                     </Border>

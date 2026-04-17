@@ -300,5 +300,50 @@ namespace MediaTrans.Views
                 Top = newTop;
             }
         }
+
+        /// <summary>
+        /// 音乐搜索输入框回车触发搜索
+        /// </summary>
+        private void MusicSearchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                var vm = DataContext as MainViewModel;
+                if (vm != null && vm.MusicSearchVm != null
+                    && vm.MusicSearchVm.SearchCommand.CanExecute(null))
+                {
+                    vm.MusicSearchVm.SearchCommand.Execute(null);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 音乐搜索列表双击播放
+        /// </summary>
+        private void MusicResultList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // 从点击位置向上找到 ListBoxItem，避免空白区域双击触发
+            var dep = e.OriginalSource as DependencyObject;
+            while (dep != null && !(dep is ListBoxItem))
+            {
+                dep = VisualTreeHelper.GetParent(dep);
+            }
+            if (dep == null) return;
+
+            var item = dep as ListBoxItem;
+            if (item == null) return;
+
+            var result = item.DataContext as MusicSearchResult;
+            if (result == null) return;
+
+            var vm = DataContext as MainViewModel;
+            if (vm != null && vm.MusicSearchVm != null
+                && vm.MusicSearchVm.PlayItemCommand.CanExecute(result))
+            {
+                vm.MusicSearchVm.PlayItemCommand.Execute(result);
+                e.Handled = true;
+            }
+        }
     }
 }

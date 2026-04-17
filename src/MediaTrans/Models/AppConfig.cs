@@ -104,6 +104,21 @@ namespace MediaTrans.Models
         public string LastOutputDirectory { get; set; }
 
         /// <summary>
+        /// Node.js 运行时路径
+        /// </summary>
+        public string NodejsPath { get; set; }
+
+        /// <summary>
+        /// 音乐搜索服务脚本路径
+        /// </summary>
+        public string MusicServerScript { get; set; }
+
+        /// <summary>
+        /// 音乐搜索服务端口
+        /// </summary>
+        public int MusicServerPort { get; set; }
+
+        /// <summary>
         /// 创建默认配置
         /// </summary>
         public static AppConfig CreateDefault()
@@ -128,6 +143,9 @@ namespace MediaTrans.Models
                 MaxParallelTasks = 1,
                 PlayheadStepPixels = 10,
                 LastOutputDirectory = "",
+                NodejsPath = @"lib\nodejs\node.exe",
+                MusicServerScript = @"lib\music-server\server.js",
+                MusicServerPort = 35200,
                 ConversionPresets = new List<ConversionPreset>()
             };
 

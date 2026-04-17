@@ -48,5 +48,8 @@
       "AudioBitrate": "320k",
       "FrameRate": 0
     }
-  ]
+  ],
+  "NodejsPath": "lib\\nodejs\\node.exe",
+  "MusicServerScript": "lib\\music-server\\server.js",
+  "MusicServerPort": 35200
 }

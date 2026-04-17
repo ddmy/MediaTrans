@@ -31,6 +31,7 @@ namespace MediaTrans.ViewModels
         private bool _isEditorMode;
         private bool _isSpliceMode;
         private bool _isAudioToolMode;
+        private bool _isMusicSearchMode;
 
         private static readonly List<string> _videoFormats =
             new List<string> { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".ts", ".mpg", ".mpeg" };
@@ -247,6 +248,25 @@ namespace MediaTrans.ViewModels
         public RelayCommand AddToSpliceCommand { get; private set; }
 
         /// <summary>
+        /// 是否为音乐搜索模式
+        /// </summary>
+        public bool IsMusicSearchMode
+        {
+            get { return _isMusicSearchMode; }
+            set { SetProperty(ref _isMusicSearchMode, value, "IsMusicSearchMode"); }
+        }
+
+        /// <summary>
+        /// 音乐搜索 ViewModel
+        /// </summary>
+        public MusicSearchViewModel MusicSearchVm { get; private set; }
+
+        /// <summary>
+        /// 切换到音乐搜索模式命令
+        /// </summary>
+        public RelayCommand SwitchToMusicSearchCommand { get; private set; }
+
+        /// <summary>
         /// 是否为音频工具模式（true=音频，false=视频）
         /// </summary>
         public bool IsAudioToolMode
@@ -321,6 +341,8 @@ namespace MediaTrans.ViewModels
             SwitchToVideoToolCommand = new RelayCommand(o => { IsAudioToolMode = false; });
             SwitchToAudioToolCommand = new RelayCommand(o => { IsAudioToolMode = true; });
             AddToSpliceCommand = new RelayCommand(OnAddToSplice, o => _isSpliceMode && _selectedFile != null);
+            SwitchToMusicSearchCommand = new RelayCommand(OnSwitchToMusicSearch);
+            MusicSearchVm = new MusicSearchViewModel(_configService, _ffmpegService);
             _conversionService.ProgressChanged += OnConversionProgressChanged;
         }
 
@@ -842,12 +864,14 @@ namespace MediaTrans.ViewModels
         {
             IsEditorMode = false;
             IsSpliceMode = false;
+            IsMusicSearchMode = false;
         }
 
         private void OnSwitchToEditor(object parameter)
         {
             IsEditorMode = true;
             IsSpliceMode = false;
+            IsMusicSearchMode = false;
             // 自动加载当前选中文件到编辑器
             if (_selectedFile != null && EditorVm != null)
             {
@@ -859,6 +883,7 @@ namespace MediaTrans.ViewModels
         {
             IsEditorMode = false;
             IsSpliceMode = true;
+            IsMusicSearchMode = false;
             if (AddToSpliceCommand != null)
             {
                 AddToSpliceCommand.RaiseCanExecuteChanged();
@@ -870,6 +895,18 @@ namespace MediaTrans.ViewModels
             if (_selectedFile != null && EditorVm != null)
             {
                 EditorVm.AddFileToSplice(_selectedFile);
+            }
+        }
+
+        private void OnSwitchToMusicSearch(object parameter)
+        {
+            IsEditorMode = false;
+            IsSpliceMode = false;
+            IsMusicSearchMode = true;
+            // 按需启动 Node.js 服务
+            if (MusicSearchVm != null)
+            {
+                MusicSearchVm.EnsureServiceStarted();
             }
         }
 
