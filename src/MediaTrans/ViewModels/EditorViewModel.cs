@@ -1529,24 +1529,39 @@ namespace MediaTrans.ViewModels
 
             // 支持格式: HH:MM:SS.mmm 或 MM:SS.mmm 或 SS.mmm 或 SS
             text = text.Trim();
+            text = text.Replace('：', ':').Replace('，', '.').Replace('。', '.');
             string[] parts = text.Split(':');
 
             try
             {
                 if (parts.Length == 3)
                 {
+                    // 兼容 MM:SS:ms（如 1:53:310）
+                    if (parts[2].IndexOf('.') < 0)
+                    {
+                        int lastInt;
+                        if (int.TryParse(parts[2], out lastInt) && lastInt > 59)
+                        {
+                            double mins = double.Parse(parts[0], CultureInfo.InvariantCulture);
+                            double secs = double.Parse(parts[1], CultureInfo.InvariantCulture);
+                            double ms = double.Parse(parts[2], CultureInfo.InvariantCulture);
+                            seconds = mins * 60 + secs + (ms / 1000.0);
+                            return seconds >= 0;
+                        }
+                    }
+
                     // HH:MM:SS.mmm
-                    double hours = double.Parse(parts[0]);
-                    double mins = double.Parse(parts[1]);
-                    double secs = double.Parse(parts[2],
+                    double hours = double.Parse(parts[0], CultureInfo.InvariantCulture);
+                    double mins2 = double.Parse(parts[1], CultureInfo.InvariantCulture);
+                    double secs2 = double.Parse(parts[2],
                         CultureInfo.InvariantCulture);
-                    seconds = hours * 3600 + mins * 60 + secs;
+                    seconds = hours * 3600 + mins2 * 60 + secs2;
                     return seconds >= 0;
                 }
                 else if (parts.Length == 2)
                 {
                     // MM:SS.mmm
-                    double mins = double.Parse(parts[0]);
+                    double mins = double.Parse(parts[0], CultureInfo.InvariantCulture);
                     double secs = double.Parse(parts[1],
                         CultureInfo.InvariantCulture);
                     seconds = mins * 60 + secs;
