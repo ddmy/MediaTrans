@@ -87,6 +87,7 @@
     <Compile Include="UndoRedoTests.cs" />
     <Compile Include="ShortcutTests.cs" />
     <Compile Include="EditExportTests.cs" />
+    <Compile Include="EditorViewModelTests.cs" />
     <Compile Include="PerformanceStressTests.cs" />
     <Compile Include="Milestone2Tests.cs" />
     <Compile Include="KeyGeneratorTests.cs" />

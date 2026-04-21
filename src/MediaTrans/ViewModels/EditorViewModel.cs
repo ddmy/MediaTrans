@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MediaTrans.Commands;
@@ -20,6 +21,8 @@ namespace MediaTrans.ViewModels
     /// </summary>
     public class EditorViewModel : ViewModelBase, IDisposable
     {
+        private const int MaxVirtualGapDurationMs = 30000;
+
         private MediaFileInfo _currentFile;
         private string _trimStartText = "00:00:00.000";
         private string _trimEndText = "00:00:00.000";
@@ -257,6 +260,7 @@ namespace MediaTrans.ViewModels
                     TrimExportCommand.RaiseCanExecuteChanged();
                     SpliceExportCommand.RaiseCanExecuteChanged();
                     StopExportCommand.RaiseCanExecuteChanged();
+                    AddSilenceBlackSegmentCommand.RaiseCanExecuteChanged();
                 }
             }
         }
@@ -383,6 +387,8 @@ namespace MediaTrans.ViewModels
         public RelayCommand MoveSpliceUpCommand { get; private set; }
         /// <summary>拼接文件下移命令</summary>
         public RelayCommand MoveSpliceDownCommand { get; private set; }
+        /// <summary>插入静音黑屏片段命令</summary>
+        public RelayCommand AddSilenceBlackSegmentCommand { get; private set; }
         /// <summary>播放选区命令</summary>
         public RelayCommand PlaySelectionCommand { get; private set; }
 
@@ -432,6 +438,7 @@ namespace MediaTrans.ViewModels
             SpliceExportCommand = new RelayCommand(OnSpliceExport, CanSpliceExport);
             MoveSpliceUpCommand = new RelayCommand(OnMoveSpliceUp);
             MoveSpliceDownCommand = new RelayCommand(OnMoveSpliceDown);
+            AddSilenceBlackSegmentCommand = new RelayCommand(OnAddSilenceBlackSegment, o => !_isExporting);
             PlaySelectionCommand = new RelayCommand(OnPlaySelection, o => _currentFile != null && _audioReady);
         }
 
@@ -1081,7 +1088,10 @@ namespace MediaTrans.ViewModels
                 TrimStart = 0,
                 TrimEnd = dur,
                 HasAudio = file.HasAudio,
-                HasVideo = file.HasVideo
+                HasVideo = file.HasVideo,
+                IsVirtualGap = false,
+                VideoWidth = file.Width,
+                VideoHeight = file.Height
             });
             SpliceExportCommand.RaiseCanExecuteChanged();
         }
@@ -1130,8 +1140,62 @@ namespace MediaTrans.ViewModels
                 TrimStart = 0,
                 TrimEnd = dur,
                 HasAudio = true,
-                HasVideo = true
+                HasVideo = true,
+                IsVirtualGap = false,
+                VideoWidth = 0,
+                VideoHeight = 0
             });
+        }
+
+        private void OnAddSilenceBlackSegment(object parameter)
+        {
+            int gapMs;
+            if (!ShowGapDurationInputDialog(out gapMs))
+            {
+                return;
+            }
+
+            string error;
+            if (!TryAddVirtualGapSegment(gapMs, out error))
+            {
+                DarkMessageBox.Show(error, "输入错误", MessageBoxButton.OK, DarkMessageBoxIcon.Warning);
+            }
+        }
+
+        /// <summary>
+        /// 添加一个可排序的静音黑屏虚拟片段（用于命令与测试复用）
+        /// </summary>
+        public bool TryAddVirtualGapSegment(int gapMs, out string error)
+        {
+            error = string.Empty;
+
+            if (gapMs < 0 || gapMs > MaxVirtualGapDurationMs)
+            {
+                error = string.Format("毫秒范围必须在 0 - {0}。", MaxVirtualGapDurationMs);
+                return false;
+            }
+
+            _spliceFiles.Add(CreateVirtualGapEntry(gapMs));
+            SpliceExportCommand.RaiseCanExecuteChanged();
+            return true;
+        }
+
+        private static SpliceEntry CreateVirtualGapEntry(int gapMs)
+        {
+            return new SpliceEntry
+            {
+                FilePath = string.Empty,
+                FileName = string.Format("静音黑屏片段（{0}ms）", gapMs),
+                DurationText = string.Format("{0} ms", gapMs),
+                TrimStart = 0,
+                TrimEnd = gapMs / 1000.0,
+                HasAudio = true,
+                HasVideo = true,
+                IsVirtualGap = true,
+                VirtualGapDurationMs = gapMs,
+                VideoWidth = 0,
+                VideoHeight = 0
+            };
         }
 
         private void OnRemoveSpliceFile(object parameter)
@@ -1168,12 +1232,32 @@ namespace MediaTrans.ViewModels
 
         private bool CanSpliceExport(object parameter)
         {
-            return _spliceFiles.Count >= 2 && !_isExporting;
+            if (_isExporting)
+            {
+                return false;
+            }
+
+            if (_spliceFiles.Count < 2)
+            {
+                return false;
+            }
+
+            return CountRealSpliceEntries() >= 1;
         }
 
         private void OnSpliceExport(object parameter)
         {
-            if (_spliceFiles.Count < 2 || _isExporting) return;
+            if (_isExporting) return;
+            if (_spliceFiles.Count < 2)
+            {
+                StatusText = "至少需要 2 个片段才能导出";
+                return;
+            }
+            if (CountRealSpliceEntries() < 1)
+            {
+                StatusText = "至少需要 1 个真实媒体文件";
+                return;
+            }
 
             string ext = SelectedExportFormat ?? ".mp4";
             string outputDir = string.Empty;
@@ -1203,8 +1287,29 @@ namespace MediaTrans.ViewModels
 
             var segments = new List<ClipSegment>();
             double totalDur = 0;
+            bool hasVirtualGap = false;
             foreach (var entry in _spliceFiles)
             {
+                if (entry.IsVirtualGap)
+                {
+                    hasVirtualGap = true;
+                    double gapSec = entry.VirtualGapDurationMs / 1000.0;
+                    segments.Add(new ClipSegment
+                    {
+                        SourceFilePath = string.Empty,
+                        StartSeconds = 0,
+                        DurationSeconds = gapSec,
+                        HasAudio = true,
+                        HasVideo = true,
+                        IsVirtualGap = true,
+                        GapDurationMs = entry.VirtualGapDurationMs,
+                        VideoWidth = 0,
+                        VideoHeight = 0
+                    });
+                    totalDur += gapSec;
+                    continue;
+                }
+
                 double dur = entry.TrimEnd - entry.TrimStart;
                 if (dur <= 0) dur = entry.TrimEnd;
                 // 仅当用户进行了裁剪时才设置 DurationSeconds，
@@ -1215,7 +1320,12 @@ namespace MediaTrans.ViewModels
                     SourceFilePath = entry.FilePath,
                     StartSeconds = entry.TrimStart,
                     DurationSeconds = isTrimmed ? dur : 0,
-                    HasAudio = entry.HasAudio
+                    HasAudio = entry.HasAudio,
+                    HasVideo = entry.HasVideo,
+                    IsVirtualGap = false,
+                    GapDurationMs = 0,
+                    VideoWidth = entry.VideoWidth,
+                    VideoHeight = entry.VideoHeight
                 });
                 totalDur += dur;
             }
@@ -1235,8 +1345,165 @@ namespace MediaTrans.ViewModels
                 return;
             }
 
+            if (hasVirtualGap && ConversionService.IsAudioOnlyFormat(ext))
+            {
+                DarkMessageBox.Show(
+                    "当前输出为纯音频格式，黑屏段将自动降级为静音段。",
+                    "提示",
+                    MessageBoxButton.OK,
+                    DarkMessageBoxIcon.Information);
+            }
+
             string args = _editExportService.BuildExportArguments(exportParams);
             ExecuteExport(args, outputPath, totalDur);
+        }
+
+        private int CountRealSpliceEntries()
+        {
+            int count = 0;
+            foreach (var entry in _spliceFiles)
+            {
+                if (entry != null && !entry.IsVirtualGap)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        private bool ShowGapDurationInputDialog(out int gapMs)
+        {
+            gapMs = 0;
+            int selectedGapMs = 0;
+
+            var bgBrush = new SolidColorBrush(Color.FromRgb(30, 30, 46));
+            var panelBrush = new SolidColorBrush(Color.FromRgb(37, 37, 64));
+            var textBrush = new SolidColorBrush(Color.FromRgb(238, 238, 238));
+            var hintBrush = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+            var borderBrush = new SolidColorBrush(Color.FromRgb(91, 141, 239));
+            var inputBgBrush = new SolidColorBrush(Color.FromRgb(20, 20, 34));
+            var primaryButtonBrush = new SolidColorBrush(Color.FromRgb(91, 141, 239));
+            var secondaryButtonBrush = new SolidColorBrush(Color.FromRgb(62, 62, 94));
+
+            var dialog = new Window();
+            dialog.Title = "插入静音黑屏片段";
+            dialog.Width = 360;
+            dialog.Height = 210;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            dialog.ResizeMode = ResizeMode.NoResize;
+            dialog.WindowStyle = WindowStyle.ToolWindow;
+            dialog.Owner = Application.Current != null ? Application.Current.MainWindow : null;
+            dialog.Background = bgBrush;
+
+            var rootBorder = new Border();
+            rootBorder.Margin = new Thickness(10);
+            rootBorder.Padding = new Thickness(14);
+            rootBorder.Background = panelBrush;
+            rootBorder.BorderBrush = borderBrush;
+            rootBorder.BorderThickness = new Thickness(1);
+            rootBorder.CornerRadius = new CornerRadius(4);
+
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var tip = new TextBlock();
+            tip.Text = "请输入片段时长（毫秒，0-30000）：";
+            tip.Margin = new Thickness(0, 0, 0, 8);
+            tip.Foreground = textBrush;
+            tip.FontSize = 13;
+            tip.FontWeight = FontWeights.SemiBold;
+            Grid.SetRow(tip, 0);
+            root.Children.Add(tip);
+
+            var hint = new TextBlock();
+            hint.Text = "建议值：500 - 2000（过长会影响节奏）";
+            hint.Margin = new Thickness(0, 0, 0, 8);
+            hint.Foreground = hintBrush;
+            hint.FontSize = 11;
+            Grid.SetRow(hint, 1);
+            root.Children.Add(hint);
+
+            var input = new TextBox();
+            input.Text = "1000";
+            input.Margin = new Thickness(0, 0, 0, 10);
+            input.Padding = new Thickness(8, 6, 8, 6);
+            input.Background = inputBgBrush;
+            input.Foreground = textBrush;
+            input.BorderBrush = borderBrush;
+            input.BorderThickness = new Thickness(1);
+            input.CaretBrush = textBrush;
+            input.FontSize = 14;
+            Grid.SetRow(input, 2);
+            root.Children.Add(input);
+
+            var buttonPanel = new StackPanel();
+            buttonPanel.Orientation = Orientation.Horizontal;
+            buttonPanel.HorizontalAlignment = HorizontalAlignment.Right;
+
+            var okButton = new Button();
+            okButton.Content = "确定";
+            okButton.MinWidth = 70;
+            okButton.Margin = new Thickness(0, 0, 8, 0);
+            okButton.Padding = new Thickness(10, 4, 10, 4);
+            okButton.Foreground = textBrush;
+            okButton.Background = primaryButtonBrush;
+            okButton.BorderBrush = primaryButtonBrush;
+
+            var cancelButton = new Button();
+            cancelButton.Content = "取消";
+            cancelButton.MinWidth = 70;
+            cancelButton.Padding = new Thickness(10, 4, 10, 4);
+            cancelButton.Foreground = textBrush;
+            cancelButton.Background = secondaryButtonBrush;
+            cancelButton.BorderBrush = secondaryButtonBrush;
+
+            buttonPanel.Children.Add(okButton);
+            buttonPanel.Children.Add(cancelButton);
+            Grid.SetRow(buttonPanel, 3);
+            root.Children.Add(buttonPanel);
+
+            bool submitted = false;
+            okButton.Click += (s, e) =>
+            {
+                int parsed;
+                if (!int.TryParse(input.Text, out parsed))
+                {
+                    DarkMessageBox.Show("请输入有效整数毫秒值。", "输入错误", MessageBoxButton.OK, DarkMessageBoxIcon.Warning);
+                    return;
+                }
+                if (parsed < 0 || parsed > MaxVirtualGapDurationMs)
+                {
+                    DarkMessageBox.Show(
+                        string.Format("毫秒范围必须在 0 - {0}。", MaxVirtualGapDurationMs),
+                        "输入错误",
+                        MessageBoxButton.OK,
+                        DarkMessageBoxIcon.Warning);
+                    return;
+                }
+
+                selectedGapMs = parsed;
+                submitted = true;
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+
+            cancelButton.Click += (s, e) =>
+            {
+                dialog.DialogResult = false;
+                dialog.Close();
+            };
+
+            rootBorder.Child = root;
+            dialog.Content = rootBorder;
+            bool? result = dialog.ShowDialog();
+            if (result == true && submitted)
+            {
+                gapMs = selectedGapMs;
+            }
+            return result == true && submitted;
         }
 
         // ===== 辅助方法 =====
@@ -1341,6 +1608,7 @@ namespace MediaTrans.ViewModels
             MarkOutCommand.RaiseCanExecuteChanged();
             SelectAllCommand.RaiseCanExecuteChanged();
             SpliceExportCommand.RaiseCanExecuteChanged();
+            AddSilenceBlackSegmentCommand.RaiseCanExecuteChanged();
         }
 
         /// <summary>
@@ -1406,5 +1674,9 @@ namespace MediaTrans.ViewModels
         public double TrimEnd { get; set; }
         public bool HasAudio { get; set; }
         public bool HasVideo { get; set; }
+        public bool IsVirtualGap { get; set; }
+        public int VirtualGapDurationMs { get; set; }
+        public int VideoWidth { get; set; }
+        public int VideoHeight { get; set; }
     }
 }

@@ -77,6 +77,31 @@ namespace MediaTrans.Services
         /// 源文件是否包含音频流
         /// </summary>
         public bool HasAudio { get; set; }
+
+        /// <summary>
+        /// 源文件是否包含视频流
+        /// </summary>
+        public bool HasVideo { get; set; }
+
+        /// <summary>
+        /// 是否为虚拟静音黑屏片段
+        /// </summary>
+        public bool IsVirtualGap { get; set; }
+
+        /// <summary>
+        /// 虚拟片段时长（毫秒）
+        /// </summary>
+        public int GapDurationMs { get; set; }
+
+        /// <summary>
+        /// 源视频宽度（像素）
+        /// </summary>
+        public int VideoWidth { get; set; }
+
+        /// <summary>
+        /// 源视频高度（像素）
+        /// </summary>
+        public int VideoHeight { get; set; }
     }
 
     /// <summary>
@@ -84,6 +109,15 @@ namespace MediaTrans.Services
     /// </summary>
     public class EditExportService
     {
+        private class SegmentInputRef
+        {
+            public bool HasVideo;
+            public bool HasAudio;
+            public int VideoInputIndex;
+            public int AudioInputIndex;
+            public double DurationSeconds;
+        }
+
         private readonly PaywallService _paywallService;
 
         public EditExportService()
@@ -150,7 +184,7 @@ namespace MediaTrans.Services
                         errors.Add(string.Format("第 {0} 段片段不能为空", i + 1));
                         continue;
                     }
-                    if (string.IsNullOrEmpty(seg.SourceFilePath))
+                    if (!seg.IsVirtualGap && string.IsNullOrEmpty(seg.SourceFilePath))
                     {
                         errors.Add(string.Format("第 {0} 段源文件路径不能为空", i + 1));
                     }
@@ -161,6 +195,13 @@ namespace MediaTrans.Services
                     if (seg.StartSeconds < 0)
                     {
                         errors.Add(string.Format("第 {0} 段起始时间不能为负数", i + 1));
+                    }
+                    if (seg.IsVirtualGap)
+                    {
+                        if (seg.GapDurationMs < 0 || seg.GapDurationMs > 30000)
+                        {
+                            errors.Add(string.Format("第 {0} 段虚拟片段时长必须在 0-30000ms", i + 1));
+                        }
                     }
                 }
             }
@@ -301,15 +342,114 @@ namespace MediaTrans.Services
             }
 
             var builder = new FFmpegCommandBuilder();
-
-            // 添加所有输入片段，每段带 -ss 和 -t 裁剪（放在 -i 前面实现 per-input seek）
-            var filterParts = new StringBuilder();
             int segCount = exportParams.Segments.Count;
+
+            bool hasVirtualGap = false;
+            bool anyRealHasAudio = false;
+            int outputWidth = 0;
+            int outputHeight = 0;
+            int outputFps = 30;
+
+            if (exportParams.Preset != null)
+            {
+                if (exportParams.Preset.Width > 0 && exportParams.Preset.Height > 0)
+                {
+                    outputWidth = exportParams.Preset.Width;
+                    outputHeight = exportParams.Preset.Height;
+                }
+                if (exportParams.Preset.FrameRate > 0)
+                {
+                    outputFps = exportParams.Preset.FrameRate;
+                }
+            }
+
+            foreach (var seg in exportParams.Segments)
+            {
+                if (seg == null) continue;
+                if (seg.IsVirtualGap)
+                {
+                    hasVirtualGap = true;
+                    continue;
+                }
+
+                if (seg.HasAudio)
+                {
+                    anyRealHasAudio = true;
+                }
+                if (seg.HasVideo)
+                {
+                    if (outputWidth <= 0 && outputHeight <= 0 && seg.VideoWidth > 0 && seg.VideoHeight > 0)
+                    {
+                        outputWidth = seg.VideoWidth;
+                        outputHeight = seg.VideoHeight;
+                    }
+                }
+            }
+
+            if (outputWidth <= 0 || outputHeight <= 0)
+            {
+                outputWidth = 1920;
+                outputHeight = 1080;
+            }
+
+            var refs = new List<SegmentInputRef>();
+            int nextInputIndex = 0;
 
             for (int i = 0; i < segCount; i++)
             {
                 var seg = exportParams.Segments[i];
-                // 构建 per-input 前置选项：-ss X -t Y
+                double segDuration = ResolveSegmentDuration(seg);
+
+                if (seg.IsVirtualGap)
+                {
+                    if (isAudioOnly)
+                    {
+                        builder.InputWithOptions(
+                            "anullsrc=r=44100:cl=stereo",
+                            string.Format(CultureInfo.InvariantCulture, "-f lavfi -t {0:F6}", segDuration));
+                        refs.Add(new SegmentInputRef
+                        {
+                            HasVideo = false,
+                            HasAudio = true,
+                            AudioInputIndex = nextInputIndex,
+                            DurationSeconds = segDuration
+                        });
+                        nextInputIndex++;
+                    }
+                    else
+                    {
+                        string colorSource = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "color=c=black:s={0}x{1}:r={2}",
+                            outputWidth,
+                            outputHeight,
+                            outputFps);
+
+                        builder.InputWithOptions(
+                            colorSource,
+                            string.Format(CultureInfo.InvariantCulture, "-f lavfi -t {0:F6}", segDuration));
+                        int videoIdx = nextInputIndex;
+                        nextInputIndex++;
+
+                        builder.InputWithOptions(
+                            "anullsrc=r=44100:cl=stereo",
+                            string.Format(CultureInfo.InvariantCulture, "-f lavfi -t {0:F6}", segDuration));
+                        int audioIdx = nextInputIndex;
+                        nextInputIndex++;
+
+                        refs.Add(new SegmentInputRef
+                        {
+                            HasVideo = true,
+                            HasAudio = true,
+                            VideoInputIndex = videoIdx,
+                            AudioInputIndex = audioIdx,
+                            DurationSeconds = segDuration
+                        });
+                    }
+
+                    continue;
+                }
+
                 var preOpts = new StringBuilder();
                 if (seg.StartSeconds > 0)
                 {
@@ -323,20 +463,80 @@ namespace MediaTrans.Services
                         "-t {0:F6}", seg.DurationSeconds));
                 }
                 builder.InputWithOptions(seg.SourceFilePath, preOpts.ToString());
+                int mainInputIdx = nextInputIndex;
+                nextInputIndex++;
+
+                if (isAudioOnly)
+                {
+                    if (seg.HasAudio)
+                    {
+                        refs.Add(new SegmentInputRef
+                        {
+                            HasVideo = false,
+                            HasAudio = true,
+                            AudioInputIndex = mainInputIdx,
+                            DurationSeconds = segDuration
+                        });
+                    }
+                    else
+                    {
+                        builder.InputWithOptions(
+                            "anullsrc=r=44100:cl=stereo",
+                            string.Format(CultureInfo.InvariantCulture, "-f lavfi -t {0:F6}", segDuration));
+                        refs.Add(new SegmentInputRef
+                        {
+                            HasVideo = false,
+                            HasAudio = true,
+                            AudioInputIndex = nextInputIndex,
+                            DurationSeconds = segDuration
+                        });
+                        nextInputIndex++;
+                    }
+                }
+                else
+                {
+                    int audioIdxFinal = -1;
+                    bool hasAudioFinal = false;
+                    if (seg.HasAudio)
+                    {
+                        audioIdxFinal = mainInputIdx;
+                        hasAudioFinal = true;
+                    }
+                    else if (hasVirtualGap || anyRealHasAudio)
+                    {
+                        builder.InputWithOptions(
+                            "anullsrc=r=44100:cl=stereo",
+                            string.Format(CultureInfo.InvariantCulture, "-f lavfi -t {0:F6}", segDuration));
+                        audioIdxFinal = nextInputIndex;
+                        hasAudioFinal = true;
+                        nextInputIndex++;
+                    }
+
+                    refs.Add(new SegmentInputRef
+                    {
+                        HasVideo = true,
+                        HasAudio = hasAudioFinal,
+                        VideoInputIndex = mainInputIdx,
+                        AudioInputIndex = audioIdxFinal,
+                        DurationSeconds = segDuration
+                    });
+                }
             }
 
-            // 构建 filter_complex
+            var filterParts = new StringBuilder();
+            bool hasGain = Math.Abs(exportParams.GainDb) > 0.01;
+            bool needWatermark = _paywallService != null && _paywallService.ShouldAddWatermark(true);
+            bool useVideoOnlyConcat = !isAudioOnly && !hasVirtualGap && !anyRealHasAudio;
+
             if (isAudioOnly)
             {
-                // 纯音频: [0:a][1:a]...[n:a]concat=n=N:v=0:a=1[a_out]
-                for (int i = 0; i < segCount; i++)
+                for (int i = 0; i < refs.Count; i++)
                 {
-                    filterParts.Append(string.Format("[{0}:a]", i));
+                    filterParts.Append(string.Format("[{0}:a]", refs[i].AudioInputIndex));
                 }
-                filterParts.Append(string.Format("concat=n={0}:v=0:a=1", segCount));
+                filterParts.Append(string.Format("concat=n={0}:v=0:a=1", refs.Count));
 
-                // 增益
-                if (Math.Abs(exportParams.GainDb) > 0.01)
+                if (hasGain)
                 {
                     double linear = GainService.DbToLinear(exportParams.GainDb);
                     filterParts.Append(string.Format(CultureInfo.InvariantCulture,
@@ -351,138 +551,66 @@ namespace MediaTrans.Services
                 builder.Map("[a_out]");
                 builder.NoVideo();
             }
-            else
+            else if (useVideoOnlyConcat)
             {
-                // 判断输入文件是否全部含音频
-                bool allHaveAudio = true;
-                bool anyHasAudio = false;
-                foreach (var seg in exportParams.Segments)
+                for (int i = 0; i < refs.Count; i++)
                 {
-                    if (seg.HasAudio)
-                    {
-                        anyHasAudio = true;
-                    }
-                    else
-                    {
-                        allHaveAudio = false;
-                    }
+                    filterParts.Append(string.Format("[{0}:v]", refs[i].VideoInputIndex));
                 }
+                filterParts.Append(string.Format("concat=n={0}:v=1:a=0", refs.Count));
 
-                bool hasGain = Math.Abs(exportParams.GainDb) > 0.01;
-                bool needWatermark = _paywallService != null && _paywallService.ShouldAddWatermark(true);
-
-                if (allHaveAudio)
+                if (needWatermark)
                 {
-                    // 所有文件都有音频：[0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1
-                    for (int i = 0; i < segCount; i++)
-                    {
-                        filterParts.Append(string.Format("[{0}:v][{0}:a]", i));
-                    }
-                    filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
-
-                    if (hasGain && needWatermark)
-                    {
-                        double linear = GainService.DbToLinear(exportParams.GainDb);
-                        string wm = _paywallService.BuildWatermarkFilter();
-                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                            "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
-                    }
-                    else if (hasGain)
-                    {
-                        double linear = GainService.DbToLinear(exportParams.GainDb);
-                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                            "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
-                    }
-                    else if (needWatermark)
-                    {
-                        string wm = _paywallService.BuildWatermarkFilter();
-                        filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
-                    }
-                    else
-                    {
-                        filterParts.Append("[v_out][a_out]");
-                    }
-
-                    builder.FilterComplex(filterParts.ToString());
-                    builder.Map("[v_out]");
-                    builder.Map("[a_out]");
-                }
-                else if (!anyHasAudio)
-                {
-                    // 所有文件都没有音频：[0:v][1:v]...concat=n=N:v=1:a=0
-                    for (int i = 0; i < segCount; i++)
-                    {
-                        filterParts.Append(string.Format("[{0}:v]", i));
-                    }
-                    filterParts.Append(string.Format("concat=n={0}:v=1:a=0", segCount));
-
-                    if (needWatermark)
-                    {
-                        string wm = _paywallService.BuildWatermarkFilter();
-                        filterParts.Append(string.Format("[v_tmp];[v_tmp]{0}[v_out]", wm));
-                    }
-                    else
-                    {
-                        filterParts.Append("[v_out]");
-                    }
-
-                    builder.FilterComplex(filterParts.ToString());
-                    builder.Map("[v_out]");
-                    builder.NoAudio();
+                    string wm = _paywallService.BuildWatermarkFilter();
+                    filterParts.Append(string.Format("[v_tmp];[v_tmp]{0}[v_out]", wm));
                 }
                 else
                 {
-                    // 混合情况：部分有音频部分没有，为无音频的输入添加静音音轨
-                    // 先添加一个静音音源作为额外输入
-                    builder.InputWithOptions("anullsrc=r=44100:cl=stereo", "-f lavfi");
-                    int silenceIdx = segCount; // 静音音源的输入索引
-
-                    for (int i = 0; i < segCount; i++)
-                    {
-                        var seg = exportParams.Segments[i];
-                        filterParts.Append(string.Format("[{0}:v]", i));
-                        if (seg.HasAudio)
-                        {
-                            filterParts.Append(string.Format("[{0}:a]", i));
-                        }
-                        else
-                        {
-                            // 使用静音音源，用 atrim 截取到与该片段相同时长
-                            double segDur = seg.DurationSeconds > 0 ? seg.DurationSeconds : 10;
-                            filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                                "[{0}:a]atrim=0:{1:F3}[sil{2}];[sil{2}]", silenceIdx, segDur, i));
-                        }
-                    }
-                    filterParts.Append(string.Format("concat=n={0}:v=1:a=1", segCount));
-
-                    if (hasGain && needWatermark)
-                    {
-                        double linear = GainService.DbToLinear(exportParams.GainDb);
-                        string wm = _paywallService.BuildWatermarkFilter();
-                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                            "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
-                    }
-                    else if (hasGain)
-                    {
-                        double linear = GainService.DbToLinear(exportParams.GainDb);
-                        filterParts.Append(string.Format(CultureInfo.InvariantCulture,
-                            "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
-                    }
-                    else if (needWatermark)
-                    {
-                        string wm = _paywallService.BuildWatermarkFilter();
-                        filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
-                    }
-                    else
-                    {
-                        filterParts.Append("[v_out][a_out]");
-                    }
-
-                    builder.FilterComplex(filterParts.ToString());
-                    builder.Map("[v_out]");
-                    builder.Map("[a_out]");
+                    filterParts.Append("[v_out]");
                 }
 
+                builder.FilterComplex(filterParts.ToString());
+                builder.Map("[v_out]");
+                builder.NoAudio();
+            }
+            else
+            {
+                for (int i = 0; i < refs.Count; i++)
+                {
+                    filterParts.Append(string.Format("[{0}:v][{1}:a]", refs[i].VideoInputIndex, refs[i].AudioInputIndex));
+                }
+                filterParts.Append(string.Format("concat=n={0}:v=1:a=1", refs.Count));
+
+                if (hasGain && needWatermark)
+                {
+                    double linear = GainService.DbToLinear(exportParams.GainDb);
+                    string wm = _paywallService.BuildWatermarkFilter();
+                    filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                        "[v_tmp][a_tmp];[a_tmp]volume={0:F6}[a_out];[v_tmp]{1}[v_out]", linear, wm));
+                }
+                else if (hasGain)
+                {
+                    double linear = GainService.DbToLinear(exportParams.GainDb);
+                    filterParts.Append(string.Format(CultureInfo.InvariantCulture,
+                        "[v_out][a_tmp];[a_tmp]volume={0:F6}[a_out]", linear));
+                }
+                else if (needWatermark)
+                {
+                    string wm = _paywallService.BuildWatermarkFilter();
+                    filterParts.Append(string.Format("[v_tmp][a_out];[v_tmp]{0}[v_out]", wm));
+                }
+                else
+                {
+                    filterParts.Append("[v_out][a_out]");
+                }
+
+                builder.FilterComplex(filterParts.ToString());
+                builder.Map("[v_out]");
+                builder.Map("[a_out]");
+            }
+
+            if (!isAudioOnly)
+            {
                 string videoCodec = codecs.VideoCodec;
                 if (exportParams.Preset != null && !string.IsNullOrEmpty(exportParams.Preset.VideoCodec))
                 {
@@ -492,13 +620,10 @@ namespace MediaTrans.Services
             }
 
             // 仅当输出包含音频流时设置音频编解码器
-            bool hasAudioOutput = isAudioOnly;
-            if (!isAudioOnly)
+            bool hasAudioOutput = isAudioOnly || hasVirtualGap || anyRealHasAudio;
+            if (!isAudioOnly && useVideoOnlyConcat)
             {
-                foreach (var seg in exportParams.Segments)
-                {
-                    if (seg.HasAudio) { hasAudioOutput = true; break; }
-                }
+                hasAudioOutput = false;
             }
             if (hasAudioOutput)
             {
@@ -537,6 +662,26 @@ namespace MediaTrans.Services
             builder.Output(exportParams.OutputFilePath);
 
             return builder.Build();
+        }
+
+        private static double ResolveSegmentDuration(ClipSegment seg)
+        {
+            if (seg == null)
+            {
+                return 1;
+            }
+
+            if (seg.DurationSeconds > 0)
+            {
+                return seg.DurationSeconds;
+            }
+
+            if (seg.IsVirtualGap && seg.GapDurationMs > 0)
+            {
+                return seg.GapDurationMs / 1000.0;
+            }
+
+            return 10;
         }
 
         /// <summary>

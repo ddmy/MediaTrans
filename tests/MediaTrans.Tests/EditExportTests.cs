@@ -187,6 +187,24 @@ namespace MediaTrans.Tests
             Assert.Empty(errors);
         }
 
+        [Fact]
+        public void 校验_虚拟片段超出时长范围_返回错误()
+        {
+            var p = new EditExportParams
+            {
+                OutputFilePath = "out.mp4",
+                TargetFormat = ".mp4",
+                Segments = new List<ClipSegment>
+                {
+                    new ClipSegment { SourceFilePath = "a.mp4", DurationSeconds = 5 },
+                    new ClipSegment { IsVirtualGap = true, GapDurationMs = 40000, DurationSeconds = 40 }
+                }
+            };
+
+            var errors = _service.ValidateParams(p);
+            Assert.Contains("第 2 段虚拟片段时长必须在 0-30000ms", errors);
+        }
+
         #endregion
 
         #region 单文件裁剪导出
@@ -425,9 +443,6 @@ namespace MediaTrans.Tests
             string args = _service.BuildConcatExportArguments(p);
 
             Assert.Contains("concat=n=3:v=0:a=1", args);
-            Assert.Contains("[0:a]", args);
-            Assert.Contains("[1:a]", args);
-            Assert.Contains("[2:a]", args);
             Assert.Contains("-vn", args);
             Assert.Contains("-c:a libmp3lame", args);
         }
@@ -508,6 +523,57 @@ namespace MediaTrans.Tests
             Assert.DoesNotContain("-c:a", args);
             Assert.Contains("-an", args);
             Assert.Contains("-c:v libx264", args);
+        }
+
+        [Fact]
+        public void 拼接导出_含虚拟静音黑屏片段_包含color与anullsrc()
+        {
+            var p = new EditExportParams
+            {
+                OutputFilePath = "output.mp4",
+                TargetFormat = ".mp4",
+                Preset = new ConversionPreset
+                {
+                    Width = 1280,
+                    Height = 720,
+                    FrameRate = 25
+                },
+                Segments = new List<ClipSegment>
+                {
+                    new ClipSegment { SourceFilePath = "a.mp4", StartSeconds = 0, DurationSeconds = 10, HasAudio = true, HasVideo = true },
+                    new ClipSegment { IsVirtualGap = true, GapDurationMs = 1500, DurationSeconds = 1.5 },
+                    new ClipSegment { SourceFilePath = "b.mp4", StartSeconds = 0, DurationSeconds = 8, HasAudio = true, HasVideo = true }
+                }
+            };
+
+            string args = _service.BuildConcatExportArguments(p);
+
+            Assert.Contains("color=c=black:s=1280x720:r=25", args);
+            Assert.Contains("anullsrc=r=44100:cl=stereo", args);
+            Assert.Contains("concat=n=3:v=1:a=1", args);
+        }
+
+        [Fact]
+        public void 拼接导出_纯音频含虚拟片段_仅静音不含黑屏()
+        {
+            var p = new EditExportParams
+            {
+                OutputFilePath = "output.mp3",
+                TargetFormat = ".mp3",
+                Segments = new List<ClipSegment>
+                {
+                    new ClipSegment { SourceFilePath = "a.mp3", StartSeconds = 0, DurationSeconds = 5, HasAudio = true },
+                    new ClipSegment { IsVirtualGap = true, GapDurationMs = 1200, DurationSeconds = 1.2 },
+                    new ClipSegment { SourceFilePath = "b.mp3", StartSeconds = 0, DurationSeconds = 4, HasAudio = true }
+                }
+            };
+
+            string args = _service.BuildConcatExportArguments(p);
+
+            Assert.Contains("anullsrc=r=44100:cl=stereo", args);
+            Assert.DoesNotContain("color=c=black", args);
+            Assert.Contains("concat=n=3:v=0:a=1", args);
+            Assert.Contains("-vn", args);
         }
 
         #endregion

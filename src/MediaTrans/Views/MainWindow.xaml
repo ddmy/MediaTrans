@@ -834,50 +834,86 @@
                                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
                                                 <ListBox.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid Margin="2,2">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="80"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0"
-                                                                       Text="{Binding FileName}"
-                                                                       Foreground="{DynamicResource FgPrimaryBrush}"
-                                                                       FontSize="12"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       VerticalAlignment="Center"/>
-                                                            <TextBlock Grid.Column="1"
-                                                                       Text="{Binding DurationText}"
-                                                                       Foreground="{DynamicResource FgMutedBrush}"
-                                                                       FontSize="11"
-                                                                       FontFamily="Consolas, Courier New"
-                                                                       HorizontalAlignment="Right"
-                                                                       VerticalAlignment="Center"
-                                                                       Margin="4,0"/>
-                                                            <Button Grid.Column="2" Content="↑"
-                                                                    Style="{StaticResource DarkButton}"
-                                                                    Command="{Binding DataContext.EditorVm.MoveSpliceUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    Padding="4,2" Margin="2,0,0,0"
-                                                                    FontSize="10"
-                                                                    ToolTip="上移"/>
-                                                            <Button Grid.Column="3" Content="↓"
-                                                                    Style="{StaticResource DarkButton}"
-                                                                    Command="{Binding DataContext.EditorVm.MoveSpliceDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    Padding="4,2" Margin="2,0,0,0"
-                                                                    FontSize="10"
-                                                                    ToolTip="下移"/>
-                                                            <Button Grid.Column="4" Content="✕"
-                                                                    Style="{StaticResource DarkButton}"
-                                                                    Command="{Binding DataContext.EditorVm.RemoveSpliceFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    Padding="4,2" Margin="2,0,0,0"
-                                                                    FontSize="10"
-                                                                    ToolTip="移除此项"/>
-                                                        </Grid>
+                                                        <Border Margin="2,2" CornerRadius="3" Padding="4,2">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="Transparent"/>
+                                                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                                                    <Setter Property="BorderThickness" Value="1"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsVirtualGap}" Value="True">
+                                                                            <Setter Property="Background" Value="#33252540"/>
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="80"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0"
+                                                                           Text="GAP"
+                                                                           Margin="0,0,6,0"
+                                                                           Padding="4,1"
+                                                                           FontSize="10"
+                                                                           VerticalAlignment="Center"
+                                                                           Visibility="Collapsed"
+                                                                           Foreground="White"
+                                                                           Background="{DynamicResource AccentPrimaryBrush}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsVirtualGap}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding FileName}"
+                                                                           Foreground="{DynamicResource FgPrimaryBrush}"
+                                                                           FontSize="12"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="2"
+                                                                           Text="{Binding DurationText}"
+                                                                           Foreground="{DynamicResource FgMutedBrush}"
+                                                                           FontSize="11"
+                                                                           FontFamily="Consolas, Courier New"
+                                                                           HorizontalAlignment="Right"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="4,0"/>
+                                                                <Button Grid.Column="3" Content="↑"
+                                                                        Style="{StaticResource DarkButton}"
+                                                                        Command="{Binding DataContext.EditorVm.MoveSpliceUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="4,2" Margin="2,0,0,0"
+                                                                        FontSize="10"
+                                                                        ToolTip="上移"/>
+                                                                <Button Grid.Column="4" Content="↓"
+                                                                        Style="{StaticResource DarkButton}"
+                                                                        Command="{Binding DataContext.EditorVm.MoveSpliceDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="4,2" Margin="2,0,0,0"
+                                                                        FontSize="10"
+                                                                        ToolTip="下移"/>
+                                                                <Button Grid.Column="5" Content="✕"
+                                                                        Style="{StaticResource DarkButton}"
+                                                                        Command="{Binding DataContext.EditorVm.RemoveSpliceFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Padding="4,2" Margin="2,0,0,0"
+                                                                        FontSize="10"
+                                                                        ToolTip="移除此项"/>
+                                                            </Grid>
+                                                        </Border>
                                                     </DataTemplate>
                                                 </ListBox.ItemTemplate>
                                             </ListBox>
@@ -888,11 +924,16 @@
                                                         Style="{StaticResource DarkButton}"
                                                         Command="{Binding EditorVm.AddSpliceFileCommand}"
                                                         Padding="10,4" Margin="0,0,6,0" FontSize="12"/>
+                                                <Button Content="+ 插入静音黑屏片段"
+                                                    Style="{StaticResource DarkButton}"
+                                                    Command="{Binding EditorVm.AddSilenceBlackSegmentCommand}"
+                                                    Padding="10,4" Margin="0,0,6,0" FontSize="12"
+                                                    ToolTip="插入可排序的黑屏+静音片段"/>
                                                 <Button Content="🔗 拼接导出"
                                                         Style="{StaticResource AccentButton}"
                                                         Command="{Binding EditorVm.SpliceExportCommand}"
                                                         Padding="10,4" FontSize="12"
-                                                        ToolTip="至少需要 2 个文件才能拼接"/>
+                                                    ToolTip="至少需要 2 个片段且包含 1 个真实文件"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </Border>
