@@ -202,6 +202,16 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 当视口缩放或平移后，刷新播放头的可见位置
+        /// </summary>
+        public void RefreshViewportState()
+        {
+            OnPropertyChanged("PlayheadPixelX");
+            OnPropertyChanged("IsPlayheadVisible");
+            UpdatePlayheadTimeText();
+        }
+
+        /// <summary>
         /// 更新播放头时间码文本
         /// </summary>
         private void UpdatePlayheadTimeText()

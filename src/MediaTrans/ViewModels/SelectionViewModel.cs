@@ -327,6 +327,18 @@ namespace MediaTrans.ViewModels
         }
 
         /// <summary>
+        /// 当波形视口缩放或平移后，刷新与像素位置相关的派生属性
+        /// </summary>
+        public void RefreshViewportState()
+        {
+            OnPropertyChanged("SelectionStartPixelX");
+            OnPropertyChanged("SelectionEndPixelX");
+            OnPropertyChanged("SelectionWidthPixels");
+            OnPropertyChanged("SelectionDurationSamples");
+            UpdateDisplayTexts();
+        }
+
+        /// <summary>
         /// 判断一个像素 X 坐标是否在左 Handle 附近（用于命中测试）
         /// </summary>
         /// <param name="pixelX">鼠标 X 坐标</param>

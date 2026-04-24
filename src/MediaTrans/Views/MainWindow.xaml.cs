@@ -16,8 +16,11 @@ namespace MediaTrans.Views
     public partial class MainWindow : Window
     {
         private ShortcutService _shortcutService;
-        // 拖拽模式：0=None, 1=DragTrimStart, 2=DragTrimEnd, 3=SeekPlayhead
+        // 拖拽模式：0=None, 1=DragTrimStart, 2=DragTrimEnd, 3=PendingSeekOrSelection, 4=Selecting
         private int _dragMode;
+        private Point _dragStartPoint;
+        private const double WaveformHandleHitThreshold = 8.0;
+        private const double WaveformSelectionThreshold = 4.0;
 
         public MainWindow()
         {
@@ -39,9 +42,15 @@ namespace MediaTrans.Views
         {
             base.OnPreviewKeyDown(e);
 
-            // 如果焦点在文本输入框内，不拦截快捷键（允许正常编辑）
-            if (e.OriginalSource is System.Windows.Controls.TextBox)
+            // 如果焦点在可编辑输入控件内，不拦截快捷键（允许正常编辑）
+            if (IsTypingContext(e))
             {
+                return;
+            }
+
+            if (ProcessEditorHotkeys(e))
+            {
+                e.Handled = true;
                 return;
             }
 
@@ -49,6 +58,98 @@ namespace MediaTrans.Views
             {
                 e.Handled = true;
             }
+        }
+
+        private bool ProcessEditorHotkeys(KeyEventArgs e)
+        {
+            var vm = DataContext as MainViewModel;
+            if (vm == null || !vm.IsEditorMode || vm.EditorVm == null)
+            {
+                return false;
+            }
+
+            ModifierKeys modifiers = Keyboard.Modifiers;
+            if (modifiers == ModifierKeys.None && e.Key == Key.Delete)
+            {
+                if (vm.EditorVm.DeleteSelectionCommand.CanExecute(null))
+                {
+                    vm.EditorVm.DeleteSelectionCommand.Execute(null);
+                    return true;
+                }
+                return false;
+            }
+
+            if (modifiers == ModifierKeys.Control && e.Key == Key.Z)
+            {
+                if (vm.EditorVm.UndoEditCommand.CanExecute(null))
+                {
+                    vm.EditorVm.UndoEditCommand.Execute(null);
+                    return true;
+                }
+                return false;
+            }
+
+            if (modifiers == ModifierKeys.Control && e.Key == Key.Y)
+            {
+                if (vm.EditorVm.RedoEditCommand.CanExecute(null))
+                {
+                    vm.EditorVm.RedoEditCommand.Execute(null);
+                    return true;
+                }
+                return false;
+            }
+
+            return false;
+        }
+
+        private static bool IsTypingContext(KeyEventArgs e)
+        {
+            if (e == null)
+            {
+                return false;
+            }
+
+            var original = e.OriginalSource as DependencyObject;
+            if (IsTextInputElement(original))
+            {
+                return true;
+            }
+
+            var focused = Keyboard.FocusedElement as DependencyObject;
+            if (IsTextInputElement(focused))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsTextInputElement(DependencyObject element)
+        {
+            if (element == null)
+            {
+                return false;
+            }
+
+            var textBoxBase = element as TextBoxBase;
+            if (textBoxBase != null)
+            {
+                return true;
+            }
+
+            var passwordBox = element as PasswordBox;
+            if (passwordBox != null)
+            {
+                return true;
+            }
+
+            var comboBox = element as ComboBox;
+            if (comboBox != null && comboBox.IsEditable)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -157,13 +258,18 @@ namespace MediaTrans.Views
             var border = sender as System.Windows.Controls.Border;
             if (border == null) return;
 
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null || !vm.EditorVm.IsAudioReady)
+            {
+                return;
+            }
+
             var pos = e.GetPosition(border);
+            _dragStartPoint = pos;
             _dragMode = DetectDragMode(border, pos);
 
-            // 选区播放中禁止拖拽裁剪标记
-            var vm = DataContext as MainViewModel;
-            if (vm != null && vm.EditorVm != null && vm.EditorVm.IsPlayingSelection
-                && (_dragMode == 1 || _dragMode == 2))
+            // 播放中禁止拖拽裁剪标记
+            if (vm.EditorVm.IsPlaying && (_dragMode == 1 || _dragMode == 2))
             {
                 _dragMode = 0;
                 return;
@@ -171,11 +277,7 @@ namespace MediaTrans.Views
 
             border.CaptureMouse();
 
-            if (_dragMode == 3)
-            {
-                SeekWaveformAtPosition(border, pos);
-            }
-            else
+            if (_dragMode == 1 || _dragMode == 2)
             {
                 ApplyDragAtPosition(border, pos);
             }
@@ -194,7 +296,16 @@ namespace MediaTrans.Views
             {
                 if (_dragMode == 3)
                 {
-                    SeekWaveformAtPosition(border, pos);
+                    if (HasExceededSelectionThreshold(pos))
+                    {
+                        _dragMode = 4;
+                        CreateSelectionAtPosition(pos);
+                    }
+                }
+                else if (_dragMode == 4)
+                {
+                    CreateSelectionAtPosition(pos);
+                    border.Cursor = Cursors.Cross;
                 }
                 else
                 {
@@ -205,9 +316,8 @@ namespace MediaTrans.Views
             {
                 // 更新鼠标光标（靠近标记线时变为水平调整光标，选区播放中不显示）
                 var vm2 = DataContext as MainViewModel;
-                bool selPlaying = vm2 != null && vm2.EditorVm != null && vm2.EditorVm.IsPlayingSelection;
                 int mode = DetectDragMode(border, pos);
-                border.Cursor = (!selPlaying && (mode == 1 || mode == 2)) ? Cursors.SizeWE : Cursors.Hand;
+                border.Cursor = (mode == 1 || mode == 2) ? Cursors.SizeWE : Cursors.Hand;
             }
         }
 
@@ -223,6 +333,10 @@ namespace MediaTrans.Views
             {
                 SeekWaveformAtPosition(border, e.GetPosition(border));
             }
+            else if (_dragMode == 4)
+            {
+                CreateSelectionAtPosition(e.GetPosition(border));
+            }
 
             _dragMode = 0;
             border.ReleaseMouseCapture();
@@ -231,7 +345,7 @@ namespace MediaTrans.Views
         }
 
         /// <summary>
-        /// 判断鼠标位置应触发何种拖拽模式：1=起始标记, 2=结束标记, 3=定位播放
+        /// 判断鼠标位置应触发何种拖拽模式：1=起始标记, 2=结束标记, 3=候选点击/框选
         /// </summary>
         private int DetectDragMode(System.Windows.Controls.Border border, Point position)
         {
@@ -241,14 +355,18 @@ namespace MediaTrans.Views
             double width = border.ActualWidth;
             if (width <= 0) return 3;
 
-            double startX = (vm.EditorVm.TrimStartPercent / 100.0) * width;
-            double endX = (vm.EditorVm.TrimEndPercent / 100.0) * width;
-            double mouseX = position.X;
-            double hitThreshold = 6.0;
+            if (!vm.EditorVm.SelectionVm.HasSelection)
+            {
+                return 3;
+            }
 
-            if (Math.Abs(mouseX - endX) <= hitThreshold)
+            double startX = vm.EditorVm.SelectionVm.SelectionStartPixelX;
+            double endX = vm.EditorVm.SelectionVm.SelectionEndPixelX;
+            double mouseX = position.X;
+
+            if (Math.Abs(mouseX - endX) <= WaveformHandleHitThreshold)
                 return 2;
-            if (Math.Abs(mouseX - startX) <= hitThreshold)
+            if (Math.Abs(mouseX - startX) <= WaveformHandleHitThreshold)
                 return 1;
 
             return 3;
@@ -269,16 +387,21 @@ namespace MediaTrans.Views
             var vm = DataContext as MainViewModel;
             if (vm == null || vm.EditorVm == null) return;
 
+            string snapText;
+            double x = SnapToMajorTickPixel(vm.EditorVm, position.X, out snapText);
+
             if (_dragMode == 1)
             {
-                vm.EditorVm.SetTrimStartFromRatio(ratio);
-                ShowDragTooltip(position.X, width, vm.EditorVm.TrimStartText);
+                vm.EditorVm.UpdateSelectionStartFromPixel(x);
+                ShowDragTooltip(position.X, width,
+                    BuildSelectionHintText(vm.EditorVm, snapText));
                 border.Cursor = Cursors.SizeWE;
             }
             else if (_dragMode == 2)
             {
-                vm.EditorVm.SetTrimEndFromRatio(ratio);
-                ShowDragTooltip(position.X, width, vm.EditorVm.TrimEndText);
+                vm.EditorVm.UpdateSelectionEndFromPixel(x);
+                ShowDragTooltip(position.X, width,
+                    BuildSelectionHintText(vm.EditorVm, snapText));
                 border.Cursor = Cursors.SizeWE;
             }
         }
@@ -316,6 +439,176 @@ namespace MediaTrans.Views
             {
                 vm.EditorVm.SeekToRatio(ratio);
             }
+        }
+
+        /// <summary>
+        /// 波形区域滚轮缩放
+        /// </summary>
+        private void WaveformBorder_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null || !vm.EditorVm.IsAudioReady) return;
+            if (_dragMode == 1 || _dragMode == 2 || _dragMode == 4) return;
+
+            double width = border.ActualWidth;
+            if (width <= 0) return;
+
+            Point position = e.GetPosition(border);
+            double ratio = position.X / width;
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            vm.EditorVm.ZoomWaveformAtRatio(e.Delta, ratio);
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// 波形区域尺寸变化后同步视口宽度
+        /// </summary>
+        private void WaveformBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null) return;
+
+            int width = (int)Math.Max(1, e.NewSize.Width);
+            vm.EditorVm.UpdateWaveformViewportWidth(width);
+        }
+
+        private bool HasExceededSelectionThreshold(Point currentPosition)
+        {
+            return Math.Abs(currentPosition.X - _dragStartPoint.X) >= WaveformSelectionThreshold;
+        }
+
+        private void CreateSelectionAtPosition(Point currentPosition)
+        {
+            var vm = DataContext as MainViewModel;
+            if (vm == null || vm.EditorVm == null) return;
+
+            string snapText;
+            double x = SnapToMajorTickPixel(vm.EditorVm, currentPosition.X, out snapText);
+            vm.EditorVm.CreateSelectionFromPixels(_dragStartPoint.X, x);
+            ShowDragTooltip(currentPosition.X,
+                Math.Max(1, WaveformBorder.ActualWidth),
+                BuildSelectionHintText(vm.EditorVm, snapText));
+        }
+
+        private static string BuildSelectionHintText(EditorViewModel editorVm, string snapText)
+        {
+            if (editorVm == null)
+            {
+                return string.Empty;
+            }
+
+            double startSeconds;
+            double endSeconds;
+            bool parsedStart = TryParseTimeText(editorVm.TrimStartText, out startSeconds);
+            bool parsedEnd = TryParseTimeText(editorVm.TrimEndText, out endSeconds);
+            double duration = parsedStart && parsedEnd ? Math.Max(0, endSeconds - startSeconds) : 0;
+
+            string text = string.Format("{0} → {1}  (Δ {2})",
+                editorVm.TrimStartText,
+                editorVm.TrimEndText,
+                FormatDurationSeconds(duration));
+
+            if (!string.IsNullOrEmpty(snapText))
+            {
+                text += string.Format("  [{0}]", snapText);
+            }
+
+            return text;
+        }
+
+        private static string FormatDurationSeconds(double seconds)
+        {
+            if (seconds < 0)
+            {
+                seconds = 0;
+            }
+            int totalMs = (int)Math.Round(seconds * 1000.0);
+            int ms = totalMs % 1000;
+            int totalSecs = totalMs / 1000;
+            int mins = totalSecs / 60;
+            int secs = totalSecs % 60;
+            return string.Format("{0:D2}:{1:D2}.{2:D3}", mins, secs, ms);
+        }
+
+        private static bool TryParseTimeText(string text, out double seconds)
+        {
+            seconds = 0;
+            if (string.IsNullOrEmpty(text)) return false;
+
+            string normalized = text.Trim().Replace('：', ':').Replace('，', '.').Replace('。', '.');
+            string[] parts = normalized.Split(':');
+            try
+            {
+                if (parts.Length == 3)
+                {
+                    double hours = double.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+                    double mins = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    double secs = double.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                    seconds = hours * 3600 + mins * 60 + secs;
+                    return seconds >= 0;
+                }
+                if (parts.Length == 2)
+                {
+                    double mins = double.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+                    double secs = double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+                    seconds = mins * 60 + secs;
+                    return seconds >= 0;
+                }
+                if (parts.Length == 1)
+                {
+                    seconds = double.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+                    return seconds >= 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static double SnapToMajorTickPixel(EditorViewModel editorVm, double pixelX, out string snapText)
+        {
+            snapText = string.Empty;
+            if (editorVm == null || editorVm.VisibleTickMarks == null || editorVm.VisibleTickMarks.Count == 0)
+            {
+                return pixelX;
+            }
+
+            TickMark nearest = null;
+            double nearestDistance = double.MaxValue;
+            int i;
+            for (i = 0; i < editorVm.VisibleTickMarks.Count; i++)
+            {
+                TickMark tick = editorVm.VisibleTickMarks[i];
+                if (tick == null || !tick.IsMajor)
+                {
+                    continue;
+                }
+
+                double distance = Math.Abs(tick.PixelX - pixelX);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = tick;
+                }
+            }
+
+            if (nearest != null && nearestDistance <= editorVm.SnapThresholdPixels)
+            {
+                snapText = string.IsNullOrEmpty(nearest.Label)
+                    ? string.Format("吸附 {0:0.###}s", nearest.TimeSeconds)
+                    : string.Format("吸附 {0}", nearest.Label);
+                return nearest.PixelX;
+            }
+
+            return pixelX;
         }
 
         /// <summary>

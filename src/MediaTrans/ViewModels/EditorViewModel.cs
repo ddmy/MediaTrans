@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Threading;
@@ -40,6 +41,16 @@ namespace MediaTrans.ViewModels
         private System.Threading.Timer _playbackTimer;
         private bool _isPlayingSelection;
         private double _selectionPlayEndSeconds;
+        private bool _suppressSelectionSync;
+        private readonly UndoRedoService _editUndoRedoService;
+        private readonly List<SessionSegment> _sessionSegments;
+        private double _sessionDurationSeconds;
+        private double _sourceDurationSeconds;
+        private bool _hasSessionEdits;
+        private readonly WaveformViewModel _waveformVm;
+        private readonly TimelineViewModel _timelineVm;
+        private readonly SelectionViewModel _selectionVm;
+        private readonly ObservableCollection<TickMark> _visibleTickMarks;
 
         /// <summary>
         /// 是否正在播放选区（供 UI 禁用选区操作）
@@ -47,6 +58,67 @@ namespace MediaTrans.ViewModels
         public bool IsPlayingSelection
         {
             get { return _isPlayingSelection; }
+        }
+
+        /// <summary>
+        /// 当前是否存在有效选区
+        /// </summary>
+        public bool HasSelection
+        {
+            get { return _selectionVm != null && _selectionVm.HasSelection; }
+        }
+
+        /// <summary>
+        /// 当前会话时长（秒）
+        /// </summary>
+        public double SessionDurationSeconds
+        {
+            get { return _sessionDurationSeconds; }
+            private set
+            {
+                if (SetProperty(ref _sessionDurationSeconds, value, "SessionDurationSeconds"))
+                {
+                    OnPropertyChanged("FileInfoText");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 是否存在会话内删除编辑
+        /// </summary>
+        public bool HasSessionEdits
+        {
+            get { return _hasSessionEdits; }
+            private set { SetProperty(ref _hasSessionEdits, value, "HasSessionEdits"); }
+        }
+
+        /// <summary>
+        /// 是否可撤销编辑
+        /// </summary>
+        public bool CanUndoEdit
+        {
+            get { return _editUndoRedoService != null && _editUndoRedoService.CanUndo; }
+        }
+
+        /// <summary>
+        /// 是否可重做编辑
+        /// </summary>
+        public bool CanRedoEdit
+        {
+            get { return _editUndoRedoService != null && _editUndoRedoService.CanRedo; }
+        }
+
+        /// <summary>
+        /// 吸附阈值（像素）
+        /// </summary>
+        public int SnapThresholdPixels
+        {
+            get
+            {
+                var cfg = _configService != null ? _configService.CurrentConfig : null;
+                if (cfg == null || cfg.SnapThresholdPixels <= 0) return 10;
+                return cfg.SnapThresholdPixels;
+            }
         }
 
         private readonly FFmpegService _ffmpegService;
@@ -106,7 +178,7 @@ namespace MediaTrans.ViewModels
                 if (_currentFile == null) return "";
                 string info = string.Format("{0}  |  时长: {1}  |  格式: {2}",
                     _currentFile.FileName,
-                    _currentFile.DurationText,
+                    SecondsToTimeText(GetDurationForUi()),
                     _currentFile.Format ?? "");
                 if (_currentFile.HasVideo && _currentFile.Width > 0)
                 {
@@ -127,6 +199,7 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _trimStartText, value, "TrimStartText"))
                 {
                     OnPropertyChanged("TrimStartPercent");
+                    SyncSelectionFromTrimTexts();
                 }
             }
         }
@@ -142,6 +215,7 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _trimEndText, value, "TrimEndText"))
                 {
                     OnPropertyChanged("TrimEndPercent");
+                    SyncSelectionFromTrimTexts();
                 }
             }
         }
@@ -153,11 +227,12 @@ namespace MediaTrans.ViewModels
         {
             get
             {
-                if (_currentFile == null || _currentFile.DurationSeconds <= 0) return 0;
+                double duration = GetDurationForUi();
+                if (_currentFile == null || duration <= 0) return 0;
                 double start;
                 if (TryParseTimeText(_trimStartText, out start))
                 {
-                    return Math.Max(0, Math.Min(100, start / _currentFile.DurationSeconds * 100.0));
+                    return Math.Max(0, Math.Min(100, start / duration * 100.0));
                 }
                 return 0;
             }
@@ -170,11 +245,12 @@ namespace MediaTrans.ViewModels
         {
             get
             {
-                if (_currentFile == null || _currentFile.DurationSeconds <= 0) return 100;
+                double duration = GetDurationForUi();
+                if (_currentFile == null || duration <= 0) return 100;
                 double end;
                 if (TryParseTimeText(_trimEndText, out end))
                 {
-                    return Math.Max(0, Math.Min(100, end / _currentFile.DurationSeconds * 100.0));
+                    return Math.Max(0, Math.Min(100, end / duration * 100.0));
                 }
                 return 100;
             }
@@ -241,6 +317,7 @@ namespace MediaTrans.ViewModels
                 if (SetProperty(ref _isPlaying, value, "IsPlaying"))
                 {
                     OnPropertyChanged("PlayPauseLabel");
+                    OnPropertyChanged("PlaySelectionLabel");
                     PlayPauseCommand.RaiseCanExecuteChanged();
                     StopCommand.RaiseCanExecuteChanged();
                 }
@@ -270,7 +347,15 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public string PlayPauseLabel
         {
-            get { return _isPlaying ? "⏸ 暂停" : "▶ 播放"; }
+            get { return _isPlaying ? "■ 停止" : "▶ 播放"; }
+        }
+
+        /// <summary>
+        /// 播放选区按钮标签
+        /// </summary>
+        public string PlaySelectionLabel
+        {
+            get { return _isPlayingSelection ? "■ 停止选区" : "▶ 播放选区"; }
         }
 
         /// <summary>
@@ -362,6 +447,66 @@ namespace MediaTrans.ViewModels
             get { return _spliceFiles; }
         }
 
+        /// <summary>
+        /// 波形视口状态
+        /// </summary>
+        public WaveformViewModel WaveformVm
+        {
+            get { return _waveformVm; }
+        }
+
+        /// <summary>
+        /// 时间轴状态
+        /// </summary>
+        public TimelineViewModel TimelineVm
+        {
+            get { return _timelineVm; }
+        }
+
+        /// <summary>
+        /// 选区状态
+        /// </summary>
+        public SelectionViewModel SelectionVm
+        {
+            get { return _selectionVm; }
+        }
+
+        /// <summary>
+        /// 当前可见时间刻度
+        /// </summary>
+        public ObservableCollection<TickMark> VisibleTickMarks
+        {
+            get { return _visibleTickMarks; }
+        }
+
+        /// <summary>
+        /// 波形图像在当前视口下的缩放比例
+        /// </summary>
+        public double WaveformScaleX
+        {
+            get
+            {
+                if (_waveformVm == null || _waveformVm.TotalSamples <= 0) return 1.0;
+                long span = _waveformVm.ViewportSampleSpan;
+                if (span <= 0) return 1.0;
+                return _waveformVm.TotalSamples / (double)span;
+            }
+        }
+
+        /// <summary>
+        /// 波形图像在当前视口下的水平偏移
+        /// </summary>
+        public double WaveformTranslateX
+        {
+            get
+            {
+                if (_waveformVm == null || _waveformVm.TotalSamples <= 0) return 0;
+                double scaleX = WaveformScaleX;
+                return -(_waveformVm.ViewportStartSample / (double)_waveformVm.TotalSamples)
+                    * _waveformVm.ViewportWidthPixels * scaleX;
+            }
+        }
+
         // ===== 命令 =====
         /// <summary>播放/暂停命令</summary>
         public RelayCommand PlayPauseCommand { get; private set; }
@@ -369,6 +514,14 @@ namespace MediaTrans.ViewModels
         public RelayCommand StopCommand { get; private set; }
         /// <summary>裁剪导出命令</summary>
         public RelayCommand TrimExportCommand { get; private set; }
+        /// <summary>删除选区（会话内）命令</summary>
+        public RelayCommand DeleteSelectionCommand { get; private set; }
+        /// <summary>删除选区并导出命令</summary>
+        public RelayCommand DeleteSelectionExportCommand { get; private set; }
+        /// <summary>撤销编辑命令</summary>
+        public RelayCommand UndoEditCommand { get; private set; }
+        /// <summary>重做编辑命令</summary>
+        public RelayCommand RedoEditCommand { get; private set; }
         /// <summary>停止导出命令</summary>
         public RelayCommand StopExportCommand { get; private set; }
         /// <summary>标记为裁剪起始点命令</summary>
@@ -397,6 +550,13 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public EditorViewModel(FFmpegService ffmpegService, ConfigService configService)
         {
+            _waveformVm = new WaveformViewModel();
+            _timelineVm = new TimelineViewModel(_waveformVm);
+            _selectionVm = new SelectionViewModel(_waveformVm);
+            _visibleTickMarks = new ObservableCollection<TickMark>();
+            _editUndoRedoService = new UndoRedoService(GetUndoDepthFromConfig(configService));
+            _editUndoRedoService.StateChanged += OnEditUndoRedoStateChanged;
+            _sessionSegments = new List<SessionSegment>();
             _ffmpegService = ffmpegService;
             _configService = configService;
             _paywallService = null;
@@ -405,6 +565,7 @@ namespace MediaTrans.ViewModels
             _playbackService.PlaybackStopped += OnPlaybackStopped;
             _ffmpegService.ProgressChanged += OnExportProgressChanged;
             _spliceFiles = new ObservableCollection<SpliceEntry>();
+            _waveformVm.PropertyChanged += OnWaveformVmPropertyChanged;
             InitializeCommands();
         }
 
@@ -413,6 +574,13 @@ namespace MediaTrans.ViewModels
         /// </summary>
         public EditorViewModel(FFmpegService ffmpegService, ConfigService configService, PaywallService paywallService)
         {
+            _waveformVm = new WaveformViewModel();
+            _timelineVm = new TimelineViewModel(_waveformVm);
+            _selectionVm = new SelectionViewModel(_waveformVm);
+            _visibleTickMarks = new ObservableCollection<TickMark>();
+            _editUndoRedoService = new UndoRedoService(GetUndoDepthFromConfig(configService));
+            _editUndoRedoService.StateChanged += OnEditUndoRedoStateChanged;
+            _sessionSegments = new List<SessionSegment>();
             _ffmpegService = ffmpegService;
             _configService = configService;
             _paywallService = paywallService;
@@ -421,6 +589,7 @@ namespace MediaTrans.ViewModels
             _playbackService.PlaybackStopped += OnPlaybackStopped;
             _ffmpegService.ProgressChanged += OnExportProgressChanged;
             _spliceFiles = new ObservableCollection<SpliceEntry>();
+            _waveformVm.PropertyChanged += OnWaveformVmPropertyChanged;
             InitializeCommands();
         }
 
@@ -429,6 +598,10 @@ namespace MediaTrans.ViewModels
             PlayPauseCommand = new RelayCommand(OnPlayPause, CanPlayPause);
             StopCommand = new RelayCommand(OnStop, CanStop);
             TrimExportCommand = new RelayCommand(OnTrimExport, CanExport);
+            DeleteSelectionCommand = new RelayCommand(OnDeleteSelection, CanDeleteSelection);
+            DeleteSelectionExportCommand = new RelayCommand(OnDeleteSelectionExport, CanDeleteSelectionExport);
+            UndoEditCommand = new RelayCommand(OnUndoEdit, o => CanUndoEdit);
+            RedoEditCommand = new RelayCommand(OnRedoEdit, o => CanRedoEdit);
             StopExportCommand = new RelayCommand(OnStopExport, CanStopExport);
             MarkInCommand = new RelayCommand(OnMarkIn, o => _currentFile != null);
             MarkOutCommand = new RelayCommand(OnMarkOut, o => _currentFile != null);
@@ -453,12 +626,20 @@ namespace MediaTrans.ViewModels
             StopPlayback();
 
             CurrentFile = file;
+            _sourceDurationSeconds = file.DurationSeconds;
+            SessionDurationSeconds = file.DurationSeconds;
+            HasSessionEdits = false;
+            _sessionSegments.Clear();
+            _sessionSegments.Add(new SessionSegment(0, file.DurationSeconds));
+            _editUndoRedoService.Clear();
 
             // 重置时间
             TrimStartText = "00:00:00.000";
-            TrimEndText = SecondsToTimeText(file.DurationSeconds);
+            TrimEndText = SecondsToTimeText(SessionDurationSeconds);
             CurrentTimeText = "00:00:00.000";
             PlaybackProgress = 0;
+            _selectionVm.ClearSelection();
+            _timelineVm.SetPlayheadTime(0);
 
             // 根据文件类型自动选择导出格式
             if (file.HasVideo)
@@ -488,11 +669,20 @@ namespace MediaTrans.ViewModels
                 {
                     _playbackService.Open(file.FilePath);
                     _audioReady = true;
+                    long totalSamples = (long)(file.DurationSeconds * _playbackService.SampleRate);
+                    _waveformVm.Initialize(totalSamples, _playbackService.SampleRate, _waveformVm.ViewportWidthPixels);
+                    SyncSelectionFromTrimTexts();
+                    RefreshVisibleTickMarks();
                 }
                 catch (Exception ex)
                 {
                     StatusText = string.Format("无法打开音频: {0}", ex.Message);
                 }
+            }
+            else
+            {
+                _waveformVm.Initialize(0, 44100, _waveformVm.ViewportWidthPixels);
+                RefreshVisibleTickMarks();
             }
             OnPropertyChanged("IsAudioReady");
 
@@ -677,7 +867,7 @@ namespace MediaTrans.ViewModels
             if (_currentFile == null) return;
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
-            double seconds = _currentFile.DurationSeconds * ratio;
+            double seconds = GetDurationForUi() * ratio;
             TrimStartText = SecondsToTimeText(seconds);
         }
 
@@ -689,7 +879,7 @@ namespace MediaTrans.ViewModels
             if (_currentFile == null) return;
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
-            double seconds = _currentFile.DurationSeconds * ratio;
+            double seconds = GetDurationForUi() * ratio;
             TrimEndText = SecondsToTimeText(seconds);
         }
 
@@ -702,14 +892,17 @@ namespace MediaTrans.ViewModels
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
 
-            double targetSeconds = _currentFile.DurationSeconds * ratio;
-            long targetSample = (long)(targetSeconds * _playbackService.SampleRate);
+            double targetSessionSeconds = GetDurationForUi() * ratio;
+            double targetSourceSeconds = MapSessionSecondsToSourceSeconds(targetSessionSeconds);
+            long targetSample = (long)(targetSourceSeconds * _playbackService.SampleRate);
 
             _playbackService.SeekToSample(targetSample);
 
             // 立即刷新进度显示
             PlaybackProgress = ratio;
-            CurrentTimeText = SecondsToTimeText(targetSeconds);
+            CurrentTimeText = SecondsToTimeText(targetSessionSeconds);
+            _timelineVm.PlayheadSample = (long)(targetSessionSeconds * _playbackService.SampleRate);
+            EnsurePlayheadVisible();
         }
 
         private bool CanPlayPause(object parameter)
@@ -730,10 +923,8 @@ namespace MediaTrans.ViewModels
 
             if (_isPlaying)
             {
-                _playbackService.Pause();
-                IsPlaying = false;
-                StopPlaybackTimer();
-                StatusText = "已暂停";
+                StopPlayback();
+                StatusText = "已停止";
             }
             else
             {
@@ -761,6 +952,7 @@ namespace MediaTrans.ViewModels
         {
             _isPlayingSelection = false;
             OnPropertyChanged("IsPlayingSelection");
+            OnPropertyChanged("PlaySelectionLabel");
             if (_isPlaying || _playbackService.State != PlaybackState.Stopped)
             {
                 _playbackService.Stop();
@@ -768,6 +960,7 @@ namespace MediaTrans.ViewModels
                 StopPlaybackTimer();
                 PlaybackProgress = 0;
                 CurrentTimeText = "00:00:00.000";
+                _timelineVm.SetPlayheadTime(0);
             }
         }
 
@@ -777,6 +970,7 @@ namespace MediaTrans.ViewModels
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
                 OnPropertyChanged("IsPlayingSelection");
+                OnPropertyChanged("PlaySelectionLabel");
             }));
             Application.Current.Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -784,6 +978,7 @@ namespace MediaTrans.ViewModels
                 StopPlaybackTimer();
                 PlaybackProgress = 0;
                 CurrentTimeText = SecondsToTimeText(_playbackService.CurrentPositionSeconds);
+                _timelineVm.SetPlayheadTime(_playbackService.CurrentPositionSeconds);
             }));
         }
 
@@ -806,16 +1001,18 @@ namespace MediaTrans.ViewModels
         {
             try
             {
-                double pos = _playbackService.CurrentPositionSeconds;
-                double dur = _currentFile != null ? _currentFile.DurationSeconds : 0;
-                double progress = dur > 0 ? pos / dur : 0;
+                double sourcePos = _playbackService.CurrentPositionSeconds;
+                double sessionPos = MapSourceSecondsToSessionSeconds(sourcePos);
+                double dur = GetDurationForUi();
+                double progress = dur > 0 ? sessionPos / dur : 0;
 
-                if (_isPlayingSelection && pos >= _selectionPlayEndSeconds)
+                if (_isPlayingSelection && sessionPos >= _selectionPlayEndSeconds)
                 {
                     _isPlayingSelection = false;
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         OnPropertyChanged("IsPlayingSelection");
+                        OnPropertyChanged("PlaySelectionLabel");
                     }));
                     Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
@@ -834,8 +1031,10 @@ namespace MediaTrans.ViewModels
 
                 Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    CurrentTimeText = SecondsToTimeText(pos);
+                    CurrentTimeText = SecondsToTimeText(sessionPos);
                     PlaybackProgress = progress;
+                    _timelineVm.SetPlayheadTime(sessionPos);
+                    EnsurePlayheadVisible();
                 }));
             }
             catch { }
@@ -846,6 +1045,29 @@ namespace MediaTrans.ViewModels
         private bool CanExport(object parameter)
         {
             return _currentFile != null && !_isExporting;
+        }
+
+        private bool CanDeleteSelectionExport(object parameter)
+        {
+            if (_currentFile == null || _isExporting || !_selectionVm.HasSelection)
+            {
+                return false;
+            }
+
+            double startSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionStartSample);
+            double endSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionEndSample);
+            if (endSec <= startSec)
+            {
+                return false;
+            }
+
+            double duration = GetDurationForUi();
+            return startSec > 0.0001 || endSec < duration - 0.0001;
+        }
+
+        private bool CanDeleteSelection(object parameter)
+        {
+            return !_isPlaying && CanDeleteSelectionExport(parameter);
         }
 
         private bool CanStopExport(object parameter)
@@ -898,11 +1120,9 @@ namespace MediaTrans.ViewModels
 
             var exportParams = new EditExportParams
             {
-                SourceFilePath = _currentFile.FilePath,
                 OutputFilePath = outputPath,
                 TargetFormat = ext,
-                TrimStartSeconds = startSec,
-                TrimDurationSeconds = duration,
+                Segments = BuildClipSegmentsFromSessionRange(startSec, endSec),
                 GainDb = _gainDb
             };
 
@@ -914,7 +1134,7 @@ namespace MediaTrans.ViewModels
             }
 
             string args = _editExportService.BuildExportArguments(exportParams);
-            ExecuteExport(args, outputPath, duration);
+            ExecuteExport(args, outputPath, _editExportService.CalculateTotalDuration(exportParams));
         }
 
         private void ExecuteExport(string args, string outputPath, double totalDuration)
@@ -992,6 +1212,102 @@ namespace MediaTrans.ViewModels
             }
         }
 
+        private void OnDeleteSelectionExport(object parameter)
+        {
+            if (_currentFile == null || _isExporting || !_selectionVm.HasSelection) return;
+
+            double startSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionStartSample);
+            double endSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionEndSample);
+            if (endSec <= startSec)
+            {
+                StatusText = "选区时长必须大于 0";
+                return;
+            }
+
+            var afterDeleteSegments = DeleteRangeFromSessionSegments(_sessionSegments, startSec, endSec);
+            var segments = BuildClipSegmentsFromSessionSegments(afterDeleteSegments);
+
+            if (segments.Count == 0)
+            {
+                StatusText = "删除该选区后没有可导出的内容";
+                return;
+            }
+
+            string ext = SelectedExportFormat ?? ".mp4";
+            string defaultOutputPath = BuildOutputPath(_currentFile.FilePath, "_delete_selection", ext);
+
+            var saveDialog = new Microsoft.Win32.SaveFileDialog();
+            saveDialog.FileName = Path.GetFileName(defaultOutputPath);
+            saveDialog.InitialDirectory = GetSaveInitialDirectory(Path.GetDirectoryName(defaultOutputPath));
+            saveDialog.DefaultExt = ext;
+            saveDialog.Filter = MediaFileService.BuildSaveFilter(ext);
+            bool? dialogResult = saveDialog.ShowDialog();
+            if (dialogResult != true) return;
+            string outputPath = saveDialog.FileName;
+            SaveLastOutputDirectory(outputPath);
+
+            var exportParams = new EditExportParams
+            {
+                OutputFilePath = outputPath,
+                TargetFormat = ext,
+                Segments = segments,
+                GainDb = _gainDb
+            };
+
+            var errors = _editExportService.ValidateParams(exportParams);
+            if (errors.Count > 0)
+            {
+                StatusText = string.Join("; ", errors);
+                return;
+            }
+
+            string args = _editExportService.BuildExportArguments(exportParams);
+            ExecuteExport(args, outputPath, _editExportService.CalculateTotalDuration(exportParams));
+        }
+
+        private void OnDeleteSelection(object parameter)
+        {
+            if (!CanDeleteSelection(parameter))
+            {
+                return;
+            }
+
+            double startSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionStartSample);
+            double endSec = _selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionEndSample);
+            if (endSec <= startSec)
+            {
+                StatusText = "选区时长必须大于 0";
+                return;
+            }
+
+            string deletedStartText = SecondsToTimeText(startSec);
+            string deletedEndText = SecondsToTimeText(endSec);
+
+            var oldSegments = CloneSessionSegments(_sessionSegments);
+            var newSegments = DeleteRangeFromSessionSegments(_sessionSegments, startSec, endSec);
+            if (newSegments.Count == 0)
+            {
+                StatusText = "删除该选区后没有剩余内容";
+                return;
+            }
+
+            long playheadToDeleteStart = _selectionVm.WaveformVm.SecondsToSamples(startSec);
+            _editUndoRedoService.ExecuteCommand(new SessionDeleteCommand(this, oldSegments, newSegments,
+                _timelineVm.PlayheadSample, playheadToDeleteStart));
+
+            StatusText = string.Format("已删除选区：{0} - {1}", deletedStartText, deletedEndText);
+        }
+
+        private void OnUndoEdit(object parameter)
+        {
+            _editUndoRedoService.Undo();
+        }
+
+        private void OnRedoEdit(object parameter)
+        {
+            _editUndoRedoService.Redo();
+        }
+
         // ===== 标记点 =====
 
         private void OnMarkIn(object parameter)
@@ -1007,7 +1323,7 @@ namespace MediaTrans.ViewModels
             }
             else if (_currentFile != null)
             {
-                TrimEndText = SecondsToTimeText(_currentFile.DurationSeconds);
+                TrimEndText = SecondsToTimeText(GetDurationForUi());
             }
         }
 
@@ -1016,13 +1332,25 @@ namespace MediaTrans.ViewModels
             TrimStartText = "00:00:00.000";
             if (_currentFile != null)
             {
-                TrimEndText = SecondsToTimeText(_currentFile.DurationSeconds);
+                TrimEndText = SecondsToTimeText(GetDurationForUi());
             }
         }
 
         private void OnPlaySelection(object parameter)
         {
             if (_currentFile == null || !_audioReady) return;
+
+            if (_isPlayingSelection)
+            {
+                StopPlayback();
+                StatusText = "已停止选区播放";
+                return;
+            }
+
+            if (_isPlaying)
+            {
+                StopPlayback();
+            }
 
             double startSec;
             if (!TryParseTimeText(TrimStartText, out startSec)) return;
@@ -1033,12 +1361,13 @@ namespace MediaTrans.ViewModels
             _isPlayingSelection = true;
             _selectionPlayEndSeconds = endSec;
             OnPropertyChanged("IsPlayingSelection");
+            OnPropertyChanged("PlaySelectionLabel");
 
             try
             {
                 // 先 Play() 再 Seek，避免 Play() 在 Stopped 状态下把 Position 重置为 0
                 _playbackService.Play();
-                double ratio = startSec / _currentFile.DurationSeconds;
+                double ratio = startSec / GetDurationForUi();
                 SeekToRatio(ratio);
                 IsPlaying = true;
                 StartPlaybackTimer();
@@ -1049,7 +1378,166 @@ namespace MediaTrans.ViewModels
                 StatusText = string.Format("播放失败: {0}", ex.Message);
                 _isPlayingSelection = false;
                 OnPropertyChanged("IsPlayingSelection");
+                OnPropertyChanged("PlaySelectionLabel");
             }
+        }
+
+        /// <summary>
+        /// 根据波形像素位置创建或更新选区
+        /// </summary>
+        public void CreateSelectionFromPixels(double startPixelX, double endPixelX)
+        {
+            if (!_audioReady || _currentFile == null) return;
+            _selectionVm.CreateSelection(startPixelX, endPixelX);
+            SyncTrimTextsFromSelection();
+        }
+
+        /// <summary>
+        /// 拖动选区左侧手柄
+        /// </summary>
+        public void UpdateSelectionStartFromPixel(double pixelX)
+        {
+            if (!_audioReady || _currentFile == null) return;
+            _selectionVm.StartDragLeftHandle();
+            _selectionVm.UpdateDragLeftHandle(pixelX);
+            _selectionVm.EndDragLeftHandle();
+            SyncTrimTextsFromSelection();
+        }
+
+        /// <summary>
+        /// 拖动选区右侧手柄
+        /// </summary>
+        public void UpdateSelectionEndFromPixel(double pixelX)
+        {
+            if (!_audioReady || _currentFile == null) return;
+            _selectionVm.StartDragRightHandle();
+            _selectionVm.UpdateDragRightHandle(pixelX);
+            _selectionVm.EndDragRightHandle();
+            SyncTrimTextsFromSelection();
+        }
+
+        /// <summary>
+        /// 更新波形视口宽度
+        /// </summary>
+        public void UpdateWaveformViewportWidth(int width)
+        {
+            if (width <= 0) return;
+            _waveformVm.ViewportWidthPixels = width;
+            RefreshVisibleTickMarks();
+        }
+
+        /// <summary>
+        /// 在指定位置进行滚轮缩放
+        /// </summary>
+        public void ZoomWaveformAtRatio(int delta, double ratio)
+        {
+            if (!_audioReady || _currentFile == null) return;
+            _waveformVm.ZoomAtPosition(delta, ratio);
+            EnsurePlayheadVisible();
+            RefreshVisibleTickMarks();
+        }
+
+        /// <summary>
+        /// 根据当前可见视口刷新时间刻度集合
+        /// </summary>
+        public void RefreshVisibleTickMarks()
+        {
+            _visibleTickMarks.Clear();
+            if (!_audioReady || _currentFile == null) return;
+
+            List<TickMark> ticks = _timelineVm.GetVisibleTickMarks();
+            int i;
+            for (i = 0; i < ticks.Count; i++)
+            {
+                _visibleTickMarks.Add(ticks[i]);
+            }
+            OnPropertyChanged("WaveformScaleX");
+            OnPropertyChanged("WaveformTranslateX");
+            OnPropertyChanged("HasSelection");
+            DeleteSelectionCommand.RaiseCanExecuteChanged();
+            DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+            UndoEditCommand.RaiseCanExecuteChanged();
+            RedoEditCommand.RaiseCanExecuteChanged();
+        }
+
+        private void SyncSelectionFromTrimTexts()
+        {
+            double startSec;
+            double endSec;
+            if (_suppressSelectionSync || _currentFile == null || _waveformVm.TotalSamples <= 0)
+            {
+                return;
+            }
+
+            if (!TryParseTimeText(_trimStartText, out startSec) || !TryParseTimeText(_trimEndText, out endSec))
+            {
+                return;
+            }
+
+            if (endSec < startSec)
+            {
+                return;
+            }
+
+            _selectionVm.SetSelectionStartTime(startSec);
+            _selectionVm.SetSelectionEndTime(endSec);
+            _selectionVm.RefreshViewportState();
+            OnPropertyChanged("HasSelection");
+            DeleteSelectionCommand.RaiseCanExecuteChanged();
+            DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+        }
+
+        private void SyncTrimTextsFromSelection()
+        {
+            _suppressSelectionSync = true;
+            try
+            {
+                _trimStartText = SecondsToTimeText(_selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionStartSample));
+                _trimEndText = SecondsToTimeText(_selectionVm.WaveformVm.SamplesToSeconds(_selectionVm.SelectionEndSample));
+                OnPropertyChanged("TrimStartText");
+                OnPropertyChanged("TrimEndText");
+                OnPropertyChanged("TrimStartPercent");
+                OnPropertyChanged("TrimEndPercent");
+                OnPropertyChanged("HasSelection");
+                DeleteSelectionCommand.RaiseCanExecuteChanged();
+                DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+            }
+            finally
+            {
+                _suppressSelectionSync = false;
+            }
+        }
+
+        private void EnsurePlayheadVisible()
+        {
+            if (_timelineVm == null || _waveformVm.TotalSamples <= 0) return;
+            if (!_timelineVm.IsPlayheadVisible)
+            {
+                _timelineVm.ScrollToPlayhead();
+                RefreshVisibleTickMarks();
+            }
+            _timelineVm.RefreshViewportState();
+        }
+
+        private void OnWaveformVmPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e == null) return;
+            if (e.PropertyName == "ViewportStartSample"
+                || e.PropertyName == "SamplesPerPixel"
+                || e.PropertyName == "ViewportWidthPixels")
+            {
+                _selectionVm.RefreshViewportState();
+                _timelineVm.RefreshViewportState();
+                RefreshVisibleTickMarks();
+            }
+        }
+
+        private void OnEditUndoRedoStateChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged("CanUndoEdit");
+            OnPropertyChanged("CanRedoEdit");
+            UndoEditCommand.RaiseCanExecuteChanged();
+            RedoEditCommand.RaiseCanExecuteChanged();
         }
 
         // ===== 拼接 =====
@@ -1590,6 +2078,323 @@ namespace MediaTrans.ViewModels
             return Path.Combine(dir, outputName);
         }
 
+        private static int GetUndoDepthFromConfig(ConfigService configService)
+        {
+            if (configService == null || configService.CurrentConfig == null)
+            {
+                return 50;
+            }
+
+            int depth = configService.CurrentConfig.MaxUndoDepth;
+            if (depth < 1)
+            {
+                return 50;
+            }
+
+            return depth;
+        }
+
+        private double GetDurationForUi()
+        {
+            if (_currentFile == null)
+            {
+                return 0;
+            }
+
+            if (SessionDurationSeconds > 0)
+            {
+                return SessionDurationSeconds;
+            }
+
+            return _currentFile.DurationSeconds;
+        }
+
+        private static List<SessionSegment> CloneSessionSegments(List<SessionSegment> segments)
+        {
+            var cloned = new List<SessionSegment>();
+            if (segments == null)
+            {
+                return cloned;
+            }
+
+            int i;
+            for (i = 0; i < segments.Count; i++)
+            {
+                SessionSegment seg = segments[i];
+                if (seg == null || seg.DurationSeconds <= 0)
+                {
+                    continue;
+                }
+
+                cloned.Add(new SessionSegment(seg.SourceStartSeconds, seg.SourceEndSeconds));
+            }
+
+            return cloned;
+        }
+
+        private static List<SessionSegment> DeleteRangeFromSessionSegments(List<SessionSegment> segments,
+            double deleteStartSessionSeconds, double deleteEndSessionSeconds)
+        {
+            var result = new List<SessionSegment>();
+            if (segments == null || segments.Count == 0)
+            {
+                return result;
+            }
+
+            if (deleteEndSessionSeconds <= deleteStartSessionSeconds)
+            {
+                return CloneSessionSegments(segments);
+            }
+
+            double sessionCursor = 0;
+            const double epsilon = 1e-6;
+
+            int i;
+            for (i = 0; i < segments.Count; i++)
+            {
+                SessionSegment seg = segments[i];
+                if (seg == null || seg.DurationSeconds <= 0)
+                {
+                    continue;
+                }
+
+                double segStartSession = sessionCursor;
+                double segEndSession = sessionCursor + seg.DurationSeconds;
+
+                bool noOverlap = deleteEndSessionSeconds <= segStartSession + epsilon
+                    || deleteStartSessionSeconds >= segEndSession - epsilon;
+
+                if (noOverlap)
+                {
+                    result.Add(new SessionSegment(seg.SourceStartSeconds, seg.SourceEndSeconds));
+                    sessionCursor = segEndSession;
+                    continue;
+                }
+
+                if (deleteStartSessionSeconds > segStartSession + epsilon)
+                {
+                    double leftDuration = deleteStartSessionSeconds - segStartSession;
+                    if (leftDuration > epsilon)
+                    {
+                        double leftSourceStart = seg.SourceStartSeconds;
+                        double leftSourceEnd = leftSourceStart + leftDuration;
+                        result.Add(new SessionSegment(leftSourceStart, leftSourceEnd));
+                    }
+                }
+
+                if (deleteEndSessionSeconds < segEndSession - epsilon)
+                {
+                    double rightOffset = deleteEndSessionSeconds - segStartSession;
+                    if (rightOffset < 0)
+                    {
+                        rightOffset = 0;
+                    }
+
+                    double rightSourceStart = seg.SourceStartSeconds + rightOffset;
+                    double rightSourceEnd = seg.SourceEndSeconds;
+                    if (rightSourceEnd - rightSourceStart > epsilon)
+                    {
+                        result.Add(new SessionSegment(rightSourceStart, rightSourceEnd));
+                    }
+                }
+
+                sessionCursor = segEndSession;
+            }
+
+            return result;
+        }
+
+        private List<ClipSegment> BuildClipSegmentsFromSessionRange(double startSessionSeconds, double endSessionSeconds)
+        {
+            var segments = new List<ClipSegment>();
+            if (_currentFile == null || endSessionSeconds <= startSessionSeconds)
+            {
+                return segments;
+            }
+
+            double sessionCursor = 0;
+            int i;
+            for (i = 0; i < _sessionSegments.Count; i++)
+            {
+                SessionSegment sessionSeg = _sessionSegments[i];
+                if (sessionSeg == null || sessionSeg.DurationSeconds <= 0)
+                {
+                    continue;
+                }
+
+                double segStartSession = sessionCursor;
+                double segEndSession = sessionCursor + sessionSeg.DurationSeconds;
+                double overlapStart = Math.Max(startSessionSeconds, segStartSession);
+                double overlapEnd = Math.Min(endSessionSeconds, segEndSession);
+
+                if (overlapEnd > overlapStart)
+                {
+                    double startOffset = overlapStart - segStartSession;
+                    segments.Add(new ClipSegment
+                    {
+                        SourceFilePath = _currentFile.FilePath,
+                        StartSeconds = sessionSeg.SourceStartSeconds + startOffset,
+                        DurationSeconds = overlapEnd - overlapStart,
+                        HasAudio = _currentFile.HasAudio,
+                        HasVideo = _currentFile.HasVideo,
+                        IsVirtualGap = false,
+                        GapDurationMs = 0,
+                        VideoWidth = _currentFile.Width,
+                        VideoHeight = _currentFile.Height
+                    });
+                }
+
+                sessionCursor = segEndSession;
+            }
+
+            return segments;
+        }
+
+        private List<ClipSegment> BuildClipSegmentsFromSessionSegments(List<SessionSegment> sessionSegments)
+        {
+            var result = new List<ClipSegment>();
+            if (_currentFile == null || sessionSegments == null)
+            {
+                return result;
+            }
+
+            int i;
+            for (i = 0; i < sessionSegments.Count; i++)
+            {
+                SessionSegment seg = sessionSegments[i];
+                if (seg == null || seg.DurationSeconds <= 0)
+                {
+                    continue;
+                }
+
+                result.Add(new ClipSegment
+                {
+                    SourceFilePath = _currentFile.FilePath,
+                    StartSeconds = seg.SourceStartSeconds,
+                    DurationSeconds = seg.DurationSeconds,
+                    HasAudio = _currentFile.HasAudio,
+                    HasVideo = _currentFile.HasVideo,
+                    IsVirtualGap = false,
+                    GapDurationMs = 0,
+                    VideoWidth = _currentFile.Width,
+                    VideoHeight = _currentFile.Height
+                });
+            }
+
+            return result;
+        }
+
+        private double MapSessionSecondsToSourceSeconds(double sessionSeconds)
+        {
+            if (_sessionSegments.Count == 0)
+            {
+                return sessionSeconds;
+            }
+
+            if (sessionSeconds <= 0)
+            {
+                return _sessionSegments[0].SourceStartSeconds;
+            }
+
+            double sessionCursor = 0;
+            int i;
+            for (i = 0; i < _sessionSegments.Count; i++)
+            {
+                SessionSegment seg = _sessionSegments[i];
+                double next = sessionCursor + seg.DurationSeconds;
+                if (sessionSeconds <= next)
+                {
+                    return seg.SourceStartSeconds + (sessionSeconds - sessionCursor);
+                }
+                sessionCursor = next;
+            }
+
+            SessionSegment lastSeg = _sessionSegments[_sessionSegments.Count - 1];
+            return lastSeg.SourceEndSeconds;
+        }
+
+        private double MapSourceSecondsToSessionSeconds(double sourceSeconds)
+        {
+            if (_sessionSegments.Count == 0)
+            {
+                return sourceSeconds;
+            }
+
+            double sessionCursor = 0;
+            int i;
+            for (i = 0; i < _sessionSegments.Count; i++)
+            {
+                SessionSegment seg = _sessionSegments[i];
+                if (sourceSeconds < seg.SourceStartSeconds)
+                {
+                    return sessionCursor;
+                }
+                if (sourceSeconds <= seg.SourceEndSeconds)
+                {
+                    return sessionCursor + (sourceSeconds - seg.SourceStartSeconds);
+                }
+                sessionCursor += seg.DurationSeconds;
+            }
+
+            return SessionDurationSeconds;
+        }
+
+        private void ApplySessionSegments(List<SessionSegment> segments, long playheadSessionSample)
+        {
+            _sessionSegments.Clear();
+            if (segments != null)
+            {
+                int i;
+                for (i = 0; i < segments.Count; i++)
+                {
+                    SessionSegment seg = segments[i];
+                    if (seg != null && seg.DurationSeconds > 0)
+                    {
+                        _sessionSegments.Add(new SessionSegment(seg.SourceStartSeconds, seg.SourceEndSeconds));
+                    }
+                }
+            }
+
+            double duration = 0;
+            int j;
+            for (j = 0; j < _sessionSegments.Count; j++)
+            {
+                duration += _sessionSegments[j].DurationSeconds;
+            }
+            SessionDurationSeconds = duration;
+
+            bool isSingleSource = _sessionSegments.Count == 1
+                && Math.Abs(_sessionSegments[0].SourceStartSeconds) < 0.0001
+                && Math.Abs(_sessionSegments[0].SourceEndSeconds - _sourceDurationSeconds) < 0.0001;
+            HasSessionEdits = !isSingleSource;
+
+            long totalSamples = (long)(_playbackService.SampleRate * SessionDurationSeconds);
+            _waveformVm.Initialize(totalSamples, _playbackService.SampleRate, _waveformVm.ViewportWidthPixels);
+            _timelineVm.PlayheadSample = playheadSessionSample;
+            PlaybackProgress = totalSamples > 0 ? _timelineVm.PlayheadSample / (double)totalSamples : 0;
+            CurrentTimeText = SecondsToTimeText(_waveformVm.SamplesToSeconds(_timelineVm.PlayheadSample));
+            _suppressSelectionSync = true;
+            try
+            {
+                _selectionVm.ClearSelection();
+                TrimStartText = "00:00:00.000";
+                TrimEndText = SecondsToTimeText(SessionDurationSeconds);
+            }
+            finally
+            {
+                _suppressSelectionSync = false;
+            }
+
+            OnPropertyChanged("HasSelection");
+            DeleteSelectionCommand.RaiseCanExecuteChanged();
+            DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+            RefreshVisibleTickMarks();
+            _selectionVm.ClearSelection();
+            OnPropertyChanged("HasSelection");
+            DeleteSelectionCommand.RaiseCanExecuteChanged();
+            DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+        }
+
         private string GetSaveInitialDirectory(string fallback)
         {
             var cfg = _configService != null ? _configService.CurrentConfig : null;
@@ -1618,6 +2423,10 @@ namespace MediaTrans.ViewModels
             PlayPauseCommand.RaiseCanExecuteChanged();
             StopCommand.RaiseCanExecuteChanged();
             TrimExportCommand.RaiseCanExecuteChanged();
+            DeleteSelectionCommand.RaiseCanExecuteChanged();
+            DeleteSelectionExportCommand.RaiseCanExecuteChanged();
+            UndoEditCommand.RaiseCanExecuteChanged();
+            RedoEditCommand.RaiseCanExecuteChanged();
             StopExportCommand.RaiseCanExecuteChanged();
             MarkInCommand.RaiseCanExecuteChanged();
             MarkOutCommand.RaiseCanExecuteChanged();
@@ -1647,6 +2456,15 @@ namespace MediaTrans.ViewModels
             GainDb = 0;
             IsExporting = false;
             StatusText = "请在文件列表中选择文件";
+            _selectionVm.ClearSelection();
+            _timelineVm.SetPlayheadTime(0);
+            _waveformVm.Initialize(0, 44100, _waveformVm.ViewportWidthPixels);
+            _visibleTickMarks.Clear();
+            _sessionSegments.Clear();
+            SessionDurationSeconds = 0;
+            _sourceDurationSeconds = 0;
+            HasSessionEdits = false;
+            _editUndoRedoService.Clear();
 
             _spliceFiles.Clear();
 
@@ -1661,10 +2479,18 @@ namespace MediaTrans.ViewModels
         {
             StopPlayback();
             StopPlaybackTimer();
+            if (_editUndoRedoService != null)
+            {
+                _editUndoRedoService.StateChanged -= OnEditUndoRedoStateChanged;
+            }
             if (_playbackService != null)
             {
                 _playbackService.PlaybackStopped -= OnPlaybackStopped;
                 _playbackService.Dispose();
+            }
+            if (_waveformVm != null)
+            {
+                _waveformVm.PropertyChanged -= OnWaveformVmPropertyChanged;
             }
             if (_ffmpegService != null)
             {
@@ -1673,6 +2499,64 @@ namespace MediaTrans.ViewModels
             if (_exportCts != null)
             {
                 _exportCts.Dispose();
+            }
+        }
+
+        private class SessionDeleteCommand : IUndoableCommand
+        {
+            private readonly EditorViewModel _editorVm;
+            private readonly List<SessionSegment> _oldSegments;
+            private readonly List<SessionSegment> _newSegments;
+            private readonly long _oldPlayheadSample;
+            private readonly long _newPlayheadSample;
+
+            public string Description
+            {
+                get { return "删除选区"; }
+            }
+
+            public SessionDeleteCommand(EditorViewModel editorVm, List<SessionSegment> oldSegments,
+                List<SessionSegment> newSegments, long oldPlayheadSample, long newPlayheadSample)
+            {
+                if (editorVm == null) throw new ArgumentNullException("editorVm");
+                _editorVm = editorVm;
+                _oldSegments = CloneSessionSegments(oldSegments);
+                _newSegments = CloneSessionSegments(newSegments);
+                _oldPlayheadSample = oldPlayheadSample;
+                _newPlayheadSample = newPlayheadSample;
+            }
+
+            public void Execute()
+            {
+                _editorVm.ApplySessionSegments(_newSegments, _newPlayheadSample);
+            }
+
+            public void Undo()
+            {
+                _editorVm.ApplySessionSegments(_oldSegments, _oldPlayheadSample);
+            }
+        }
+
+        private class SessionSegment
+        {
+            public double SourceStartSeconds { get; private set; }
+            public double SourceEndSeconds { get; private set; }
+
+            public double DurationSeconds
+            {
+                get { return SourceEndSeconds - SourceStartSeconds; }
+            }
+
+            public SessionSegment(double sourceStartSeconds, double sourceEndSeconds)
+            {
+                SourceStartSeconds = sourceStartSeconds;
+                SourceEndSeconds = sourceEndSeconds;
+                if (SourceEndSeconds < SourceStartSeconds)
+                {
+                    double temp = SourceStartSeconds;
+                    SourceStartSeconds = SourceEndSeconds;
+                    SourceEndSeconds = temp;
+                }
             }
         }
     }

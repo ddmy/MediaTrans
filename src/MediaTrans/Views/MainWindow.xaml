@@ -547,7 +547,7 @@
                                             </Border>
 
                                             <!-- ===== 波形显示区域 ===== -->
-                                            <TextBlock Text="波形预览（点击或拖动可定位进度）" Foreground="{DynamicResource FgPrimaryBrush}"
+                                                <TextBlock Text="波形预览（轻点定位，拖拽框选，滚轮缩放）" Foreground="{DynamicResource FgPrimaryBrush}"
                                                        FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                             <Border x:Name="WaveformBorder" Height="130"
                                                     Background="{DynamicResource BgDarkestBrush}"
@@ -556,6 +556,8 @@
                                                     MouseLeftButtonDown="WaveformBorder_MouseLeftButtonDown"
                                                     MouseMove="WaveformBorder_MouseMove"
                                                     MouseLeftButtonUp="WaveformBorder_MouseLeftButtonUp"
+                                                    PreviewMouseWheel="WaveformBorder_PreviewMouseWheel"
+                                                    SizeChanged="WaveformBorder_SizeChanged"
                                                     Cursor="Hand">
                                                 <!-- 波形图叠加层 -->
                                                 <Grid x:Name="WaveformGrid">
@@ -577,48 +579,65 @@
                                                     </TextBlock>
                                                     <!-- 波形图像 -->
                                                     <Image Source="{Binding EditorVm.WaveformImage}"
-                                                           Stretch="Fill" SnapsToDevicePixels="True"/>
-                                                    <!-- 裁剪选区高亮（蓝色半透明区域） -->
-                                                    <Border Opacity="0.25" Background="{DynamicResource AccentPrimaryBrush}"
-                                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                                                        <Border.Margin>
-                                                            <MultiBinding Converter="{StaticResource TrimRegionMargin}">
-                                                                <Binding Path="EditorVm.TrimStartPercent" Mode="OneWay"/>
-                                                                <Binding Path="EditorVm.TrimEndPercent" Mode="OneWay"/>
-                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
-                                                            </MultiBinding>
-                                                        </Border.Margin>
-                                                    </Border>
-                                                    <!-- 裁剪起始标记线（绿色） -->
-                                                    <Border Width="2" Background="#FF50C878"
-                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
-                                                        <Border.Margin>
-                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
-                                                                <Binding Path="EditorVm.TrimStartPercent" Mode="OneWay"/>
-                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
-                                                            </MultiBinding>
-                                                        </Border.Margin>
-                                                    </Border>
-                                                    <!-- 裁剪结束标记线（红色） -->
-                                                    <Border Width="2" Background="#FFFF6060"
-                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
-                                                        <Border.Margin>
-                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
-                                                                <Binding Path="EditorVm.TrimEndPercent" Mode="OneWay"/>
-                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
-                                                            </MultiBinding>
-                                                        </Border.Margin>
-                                                    </Border>
-                                                    <!-- 播放头竖线（蓝白色，粗1px） -->
-                                                    <Border Width="2" Background="White" Opacity="0.9"
-                                                            HorizontalAlignment="Left" VerticalAlignment="Stretch">
-                                                        <Border.Margin>
-                                                            <MultiBinding Converter="{StaticResource ProgressToLeftMargin}">
-                                                                <Binding Path="EditorVm.PlaybackProgressPercent" Mode="OneWay"/>
-                                                                <Binding RelativeSource="{RelativeSource AncestorType=Grid}" Path="ActualWidth"/>
-                                                            </MultiBinding>
-                                                        </Border.Margin>
-                                                    </Border>
+                                                           Stretch="Fill" SnapsToDevicePixels="True"
+                                                           RenderTransformOrigin="0,0">
+                                                        <Image.RenderTransform>
+                                                            <TransformGroup>
+                                                                <ScaleTransform ScaleX="{Binding EditorVm.WaveformScaleX}"/>
+                                                                <TranslateTransform X="{Binding EditorVm.WaveformTranslateX}"/>
+                                                            </TransformGroup>
+                                                        </Image.RenderTransform>
+                                                    </Image>
+                                                    <Canvas IsHitTestVisible="False" ClipToBounds="True">
+                                                        <!-- 裁剪选区高亮（蓝色半透明区域） -->
+                                                        <Border Width="{Binding EditorVm.SelectionVm.SelectionWidthPixels}"
+                                                                Height="130"
+                                                                Background="{DynamicResource AccentPrimaryBrush}"
+                                                                Opacity="0.25"
+                                                                Canvas.Left="{Binding EditorVm.SelectionVm.SelectionStartPixelX}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding EditorVm.SelectionVm.HasSelection}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                        </Border>
+                                                        <!-- 裁剪起始标记线（绿色） -->
+                                                        <Border Width="2" Height="130" Background="#FF50C878"
+                                                                Canvas.Left="{Binding EditorVm.SelectionVm.SelectionStartPixelX}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding EditorVm.SelectionVm.HasSelection}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                        </Border>
+                                                        <!-- 裁剪结束标记线（红色） -->
+                                                        <Border Width="2" Height="130" Background="#FFFF6060"
+                                                                Canvas.Left="{Binding EditorVm.SelectionVm.SelectionEndPixelX}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding EditorVm.SelectionVm.HasSelection}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                        </Border>
+                                                        <!-- 播放头竖线（蓝白色） -->
+                                                        <Border Width="2" Height="130" Background="White" Opacity="0.9"
+                                                                Canvas.Left="{Binding EditorVm.TimelineVm.PlayheadPixelX}"/>
+                                                    </Canvas>
                                                     <!-- 拖拽时间提示气泡 -->
                                                     <Border x:Name="DragTooltip" Visibility="Collapsed"
                                                             Background="#CC000000" CornerRadius="3" Padding="4,2"
@@ -627,6 +646,71 @@
                                                         <TextBlock x:Name="DragTooltipText" Foreground="White"
                                                                    FontSize="10" FontFamily="Consolas"/>
                                                     </Border>
+                                                </Grid>
+                                            </Border>
+                                            <Border Height="24" Margin="0,0,0,10"
+                                                    Background="{DynamicResource BgMediumBrush}"
+                                                    BorderBrush="{DynamicResource BorderDefaultBrush}"
+                                                    BorderThickness="1,0,1,1"
+                                                    ClipToBounds="True">
+                                                <Grid>
+                                                    <ItemsControl ItemsSource="{Binding EditorVm.VisibleTickMarks}" IsHitTestVisible="False">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <Canvas Height="24"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemContainerStyle>
+                                                            <Style TargetType="ContentPresenter">
+                                                                <Setter Property="Canvas.Left" Value="{Binding PixelX}"/>
+                                                            </Style>
+                                                        </ItemsControl.ItemContainerStyle>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid>
+                                                                    <Border Width="1" VerticalAlignment="Top"
+                                                                            Background="{DynamicResource BorderDefaultBrush}">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Height" Value="6"/>
+                                                                                <Setter Property="Opacity" Value="0.55"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsMajor}" Value="True">
+                                                                                        <Setter Property="Height" Value="11"/>
+                                                                                        <Setter Property="Opacity" Value="0.95"/>
+                                                                                        <Setter Property="Background" Value="{DynamicResource FgSecondaryBrush}"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                    </Border>
+                                                                    <TextBlock Text="{Binding Label}"
+                                                                               Margin="3,10,0,0"
+                                                                               Foreground="{DynamicResource FgMutedBrush}"
+                                                                               FontSize="10"
+                                                                               FontFamily="Consolas, Courier New">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsMajor}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <TextBlock Text="{Binding EditorVm.WaveformVm.ZoomLevelText}"
+                                                               HorizontalAlignment="Right"
+                                                               VerticalAlignment="Top"
+                                                               Margin="0,2,6,0"
+                                                               Foreground="{DynamicResource FgMutedBrush}"
+                                                               FontSize="10"
+                                                               FontFamily="Consolas, Courier New"/>
                                                 </Grid>
                                             </Border>
 
@@ -646,12 +730,8 @@
                                                             Style="{StaticResource AccentButton}"
                                                             Command="{Binding EditorVm.PlayPauseCommand}"
                                                             Padding="14,4" Margin="0,0,6,0" FontSize="12"
-                                                            ToolTip="播放/暂停（点击波形可定位）"/>
-                                                    <Button Content="⏹ 停止"
-                                                            Style="{StaticResource DarkButton}"
-                                                            Command="{Binding EditorVm.StopCommand}"
-                                                            Padding="10,4" Margin="0,0,6,0" FontSize="12"/>
-                                                    <Button Content="▶ 播放选区"
+                                                        ToolTip="播放或停止（点击波形可定位）"/>
+                                                    <Button Content="{Binding EditorVm.PlaySelectionLabel}"
                                                             Style="{StaticResource DarkButton}"
                                                             Command="{Binding EditorVm.PlaySelectionCommand}"
                                                             Padding="10,4" FontSize="12"
@@ -727,6 +807,7 @@
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="Auto"/>
                                                             <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0" Text="格式："
                                                                    Foreground="{DynamicResource FgSecondaryBrush}"
@@ -740,7 +821,12 @@
                                                                 Style="{StaticResource AccentButton}"
                                                                 Command="{Binding EditorVm.TrimExportCommand}"
                                                                 Padding="12,5" Margin="6,0,0,0" FontSize="12"/>
-                                                        <Button Grid.Column="3" Content="停止"
+                                                        <Button Grid.Column="3" Content="🗑 删除选区导出"
+                                                            Style="{StaticResource DarkButton}"
+                                                            Command="{Binding EditorVm.DeleteSelectionExportCommand}"
+                                                            Padding="10,5" Margin="4,0,0,0" FontSize="12"
+                                                            ToolTip="删除当前选区并导出剩余内容"/>
+                                                        <Button Grid.Column="4" Content="停止"
                                                                 Style="{StaticResource DangerButton}"
                                                                 Command="{Binding EditorVm.StopExportCommand}"
                                                                 Padding="8,5" Margin="4,0,0,0" FontSize="12"
